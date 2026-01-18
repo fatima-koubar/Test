@@ -1,1 +1,108 @@
-hi this is a testing
+import { HttpErrorResponse, HttpEvent, HttpHandler, HttpInterceptor, HttpRequest } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+import { AppConfigurationService } from '@migrosonline/util-configuration';
+import { HttpParam, HttpResponseCodes } from '@migrosonline/util-platform';
+import { Store } from '@ngrx/store';
+import {
+	catchError,
+	defaultIfEmpty,
+	EMPTY,
+	filter,
+	map,
+	Observable,
+	of,
+	Subscription,
+	switchMap,
+	take,
+	tap,
+	throwError
+} from 'rxjs';
+import { AuthenticationState } from './authentication-state.model';
+import { AuthenticationTokenType } from './authentication-token-type.model';
+import { authenticationRefresh } from './authentication.action';
+import { AuthenticationService } from './authentication.service';
+
+@Injectable()
+export class AuthenticationInterceptor implements HttpInterceptor {
+	private tokenRefreshSubscription?: Subscription;
+
+	constructor(
+		private appConfig: AppConfigurationService,
+		private authenticationService: AuthenticationService,
+		private store: Store
+	) {}
+
+	intercept(
+		request: HttpRequest<Record<string, unknown>>,
+		next: HttpHandler
+	): Observable<HttpEvent<Record<string, unknown>>> {
+		return this.withAuthorization(request).pipe(
+			switchMap((req) => next.handle(req)),
+			catchError((response) => {
+				if (this.loginRequired(request, response)) {
+					this.store.dispatch(authenticationRefresh());
+					return this.deferredRefreshToken().pipe(
+						switchMap(() => this.withAuthorization(request)),
+						switchMap((req: HttpRequest<Record<string, unknown>>) => next.handle(req)),
+						catchError(() => {
+							return EMPTY;
+						})
+					);
+				}
+				return throwError(() => response);
+			})
+		);
+	}
+
+	private loginRequired(request: HttpRequest<Record<string, unknown>>, response: HttpErrorResponse) {
+		return response.status === HttpResponseCodes.Unauthorized && this.migrosOnlineComponent(request.url);
+	}
+
+	private migrosOnlineComponent(url: string): boolean {
+		return Object.values(this.appConfig.getConfig()?.componentUrls ?? []).some((componentUrl) =>
+			url.startsWith(componentUrl)
+		);
+	}
+
+	private withAuthorization(
+		request: HttpRequest<Record<string, unknown>>
+	): Observable<HttpRequest<Record<string, unknown>>> {
+		if (!this.migrosOnlineComponent(request.url) || request.params.has(HttpParam.AuthorizationNotRequired)) {
+			return of(request);
+		}
+
+		return this.authenticationService.authenticationState().pipe(
+			take(1),
+			filter((s: AuthenticationState) => !!s.token && !!s.tokenType),
+			map((s: AuthenticationState) => this.withAuthorizationToken(request, s.tokenType!, s.token!)),
+			defaultIfEmpty(request)
+		);
+	}
+
+	private withAuthorizationToken(
+		request: HttpRequest<Record<string, unknown>>,
+		tokenType: AuthenticationTokenType,
+		header: string
+	): HttpRequest<Record<string, unknown>> {
+		return request.clone({
+			headers: request.headers.set(tokenType.header, header),
+			withCredentials: true
+		});
+	}
+
+	private deferredRefreshToken(): Observable<void> {
+		return new Observable((observer) => {
+			this.tokenRefreshSubscription?.unsubscribe();
+			this.tokenRefreshSubscription = this.authenticationService
+				.activeSession()
+				.pipe(
+					tap(() => {
+						observer.next();
+						observer.complete();
+					})
+				)
+				.subscribe();
+		});
+	}
+}
+
