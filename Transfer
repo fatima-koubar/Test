@@ -1,36 +1,26 @@
-async putToken(token: string): Promise<void> {
-    try {
-      await firstValueFrom(this._applePayApi.putToken(token));
-      if (this._callbackSubmit) {
-        this._callbackSubmit();
+async startTransaction(): Promise<void> {
+    const isMobile = this._breakpointObserver.isMatched(MOBILE_BREAKPOINT);
+    const dialogRef = this._dialog.open<ApplePayTestCardsComponent, unknown, TestCard | undefined>(
+      ApplePayTestCardsComponent,
+      {
+        panelClass: isMobile ? [MOBILE_DIALOG_CLASS, DESKTOP_DIALOG_CLASS] : MOBILE_DIALOG_CLASS,
+      },
+    );
+
+    const testCard = await firstValueFrom(dialogRef.afterClosed());
+    if (!testCard) {
+      if (this._callback) {
+        this._callback();
       }
-    } catch (error) {
-      if (error instanceof APIError) {
-        switch (error.error['error'].type) {
-          case CardErrors.CardNotAccepted:
-            this._toastrService.notify('PAYMENT_MEANS.APPLE_PAY.ERRORS.CARD_NOT_ACCEPTED');
-            break;
-          case CardErrors.expirationDateNotAccepted:
-            this._toastrService.notify(
-              'PAYMENT_MEANS.APPLE_PAY.ERRORS.RESTRICTION_EXPIRATION_DATE',
-              { months: error.error['restriction_delay'] },
-            );
-            break;
-          case CardErrors.expirationDateExpired:
-            this._toastrService.notify('PAYMENT_MEANS.APPLE_PAY.ERRORS.EXPIRED');
-            break;
-          case CardErrors.invalidCard:
-            this._toastrService.notify('PAYMENT_MEANS.APPLE_PAY.ERRORS.INVALID');
-            break;
-          default:
-            this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
-            break;
-        }
-      } else {
-        this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
-      }
-      if (this._callbackError) {
-        this._callbackError();
-      }
+      return;
     }
+    this._spinnerService.injectComponent(this.container);
+    const testCardObject = {
+      account_number: testCard.account_number,
+      expiration_date: TestCardsService.getTwoYearsFromNowFormattedDate(),
+      cvx: '666',
+      holder_name: 'John Doe',
+      scheme: testCard.scheme,
+    };
+    this._applePaySessionBuilderService.putToken(btoa(JSON.stringify(testCardObject)));
   }
