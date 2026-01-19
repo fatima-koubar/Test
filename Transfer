@@ -1,26 +1,16 @@
-async startTransaction(): Promise<void> {
-    const isMobile = this._breakpointObserver.isMatched(MOBILE_BREAKPOINT);
-    const dialogRef = this._dialog.open<ApplePayTestCardsComponent, unknown, TestCard | undefined>(
-      ApplePayTestCardsComponent,
-      {
-        panelClass: isMobile ? [MOBILE_DIALOG_CLASS, DESKTOP_DIALOG_CLASS] : MOBILE_DIALOG_CLASS,
-      },
-    );
+export abstract class ApplePayAdapter {
+  public static SDK_URL = 'https://applepay.js';
+  public static INTEGRITY_HASH = 'dwdkfnk-kjnjkn';
 
-    const testCard = await firstValueFrom(dialogRef.afterClosed());
-    if (!testCard) {
-      if (this._callback) {
-        this._callback();
-      }
-      return;
-    }
-    this._spinnerService.injectComponent(this.container);
-    const testCardObject = {
-      account_number: testCard.account_number,
-      expiration_date: TestCardsService.getTwoYearsFromNowFormattedDate(),
-      cvx: '666',
-      holder_name: 'John Doe',
-      scheme: testCard.scheme,
-    };
-    this._applePaySessionBuilderService.putToken(btoa(JSON.stringify(testCardObject)));
+  private readonly _ressourceLoader = inject(RessourceLoaderService);
+  private readonly _window = inject(WINDOW);
+
+  public abstract startTransaction(): void;
+
+  public canApplePayPayment(): boolean {
+    return (
+      Boolean(this._ressourceLoader.getLoadedResource(ApplePayAdapter.SDK_URL)) &&
+      (this._window as any).ApplePaySession.canMakePayments()
+    );
   }
+}
