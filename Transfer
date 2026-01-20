@@ -1,37 +1,22 @@
-import { inject, ViewContainerRef } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { firstValueFrom, Observable, of } from 'rxjs';
-import { TestCard } from '../../../../card/models/test-card';
-import { TestCardsService } from '../../../../card/services/test-cards.service';
-import { SpinnerService } from '../../../../spinner/spinner.service';
-import { ApplePayTestCardsComponent } from '../../../components/apple-pay-test-cards/apple-pay-test-cards.component';
-import { ApplePaySessionBuilderService } from '../../../services/apple-pay-session-builder.service';
-import { BreakpointObserver } from '@angular/cdk/layout';
-import { CheckoutInput, CheckoutOutput } from '../../types';
-import { ApplePaySDKPort } from '../../apple-pay-sdk-port.interface';
+export interface ApplePaySDKPort {
+  startTransaction(): Promise<CheckoutOutput>;
+}
 
-const MOBILE_DIALOG_CLASS = 'ei_dialog';
-const DESKTOP_DIALOG_CLASS = 'full-screen-dialog';
-const MOBILE_BREAKPOINT = '(max-width: 600px)';
+export class ApplePayLiveAdapter implements ApplePaySDKPort {
+  session: any;
+
+  setSession(session: any): void {
+    this.session = session;
+  }
+
+  startTransaction(): void {
+    this.session.begin();
+  }
+}
 
 export class ApplePaySandboxAdapter implements ApplePaySDKPort {
-  container!: ViewContainerRef;
-
-  private _callback: (() => void) | undefined;
-  private readonly _dialog = inject(MatDialog);
-  private readonly _applePaySessionBuilderService = inject(ApplePaySessionBuilderService);
-  private readonly _spinnerService = inject(SpinnerService);
-  private readonly _breakpointObserver = inject(BreakpointObserver);
-
-  setCallback(callback: () => void): void {
-    this._callback = callback;
-  }
-
-  setLoadingContainer(container: ViewContainerRef): void {
-    this.container = container;
-  }
-
-  async startTransaction(): Promise<void> {
+async startTransaction(): Promise<CheckoutOutput> {
+    console.log('testttt');
     const isMobile = this._breakpointObserver.isMatched(MOBILE_BREAKPOINT);
     const dialogRef = this._dialog.open<ApplePayTestCardsComponent, unknown, TestCard | undefined>(
       ApplePayTestCardsComponent,
@@ -43,25 +28,22 @@ export class ApplePaySandboxAdapter implements ApplePaySDKPort {
     const testCard = await firstValueFrom(dialogRef.afterClosed());
     if (!testCard) {
       this._callback?.();
-      return;
+      throw new Error(
+        'ApplePaySandboxSDKAdapter | startTransaction | Carte séléctionnée inexistante',
+      );
     }
-    this._spinnerService.injectComponent(this.container);
-    this._applePaySessionBuilderService.putToken(this.buildApplePayToken(testCard));
-  }
-
-  private buildApplePayToken(testCard: TestCard): string {
-    const tokenPayload = {
-      account_number: testCard.account_number,
-      expiration_date: TestCardsService.getTwoYearsFromNowFormattedDate(),
-      cvx: '666',
-      holder_name: 'John Doe',
-      scheme: testCard.scheme,
+    return {
+      checkoutResponse: {
+        payload: btoa(
+          JSON.stringify({
+            account_number: testCard.account_number,
+            expiration_date: TestCardsService.getTwoYearsFromNowFormattedDate(),
+            cvx: '666',
+            holder_name: 'John Doe',
+            scheme: testCard.scheme,
+          }),
+        ),
+      },
     };
-
-    return btoa(JSON.stringify(tokenPayload));
   }
-}
-
-export interface ApplePaySDKPort {
-  startTransaction(): void;
 }
