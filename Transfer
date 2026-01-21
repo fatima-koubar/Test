@@ -38,3 +38,15 @@ checkout(): Observable<CheckoutOutput> {
     })()
   );
 }
+
+
+checkout(): Observable<CheckoutOutput> {
+    return this._applePayAdapter.checkout().pipe(
+      switchMap((output) => {
+        if (output) {
+          this._applePaySessionBuilderService.putToken(output.token);
+        }
+        return of(output);
+      }),
+    );
+  }
