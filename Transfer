@@ -1,75 +1,111 @@
-@Component({
-  selector: 'pc-apple-pay-test-cards',
-  templateUrl: './apple-pay-test-cards.component.html',
-  styleUrl: './apple-pay-test-cards.component.scss',
-  standalone: true,
-  imports: [
-    AutoCompleteComponent,
-    TranslateDirective,
-    TranslatePipe,
-    MatButtonModule,
-    MatDialogContent,
-    MatDialogActions,
-  ],
-})
-export class ApplePayTestCardsComponent implements OnInit {
-  readonly arrayPaiementOptions: WritableSignal<ArrayOption[]> = signal<ArrayOption[]>([]);
-  readonly searchInputValue: WritableSignal<string> = signal<string>('');
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ApplePayTestCardsComponent } from './apple-pay-test-cards.component';
+import { MatDialogRef } from '@angular/material/dialog';
+import { ApplePayTestCardsService } from '../services/apple-pay-test-cards.service';
+import { NO_ERRORS_SCHEMA } from '@angular/core';
 
-  private readonly _dialogRef = inject(MatDialogRef<ApplePayTestCardsComponent>);
-  private readonly _applePayTestCardsService = inject(ApplePayTestCardsService);
-  private windowWidth = signal(window.innerWidth);
+describe('ApplePayTestCardsComponent', () => {
+  let component: ApplePayTestCardsComponent;
+  let fixture: ComponentFixture<ApplePayTestCardsComponent>;
+  let service: ApplePayTestCardsService;
 
-  isSmartphoneDisplay: Signal<boolean> = computed(() => this.windowWidth() < 599);
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ApplePayTestCardsComponent], // standalone component
+      providers: [
+        { provide: MatDialogRef, useValue: matDialogRefMock },
+        { provide: ApplePayTestCardsService, useClass: ApplePayTestCardsServiceMock },
+      ],
+      schemas: [NO_ERRORS_SCHEMA], // ignore pc-auto-complete
+    }).compileComponents();
 
-  ngOnInit(): void {
-    this._applePayTestCardsService.setSortedCards();
-    this._applePayTestCardsService.setTestCardsByScheme();
-    this._applePayTestCardsService.setArrayPaiementOptions();
-    this.arrayPaiementOptions.set(this._applePayTestCardsService.getArrayPaiementOptions());
-  }
+    fixture = TestBed.createComponent(ApplePayTestCardsComponent);
+    component = fixture.componentInstance;
+    service = TestBed.inject(ApplePayTestCardsService);
+    fixture.detectChanges();
+  });
 
-  optionFind(option: Option): void {
-    const tab = option.id.split('-');
-    const idx = Number(tab[1]);
-    const testCard = this._applePayTestCardsService.getSortedCards()[idx];
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
 
-    if (tab.length !== 2 || Number.isNaN(Number(tab[1]))) {
-      return;
-    }
-    this._dialogRef.close(testCard);
-  }
+  // -----------------------
+  // ngOnInit
+  // -----------------------
+  it('should initialize payment options on init', () => {
+    expect(service.setSortedCards).toHaveBeenCalled();
+    expect(service.setTestCardsByScheme).toHaveBeenCalled();
+    expect(service.setArrayPaiementOptions).toHaveBeenCalled();
 
-  closeDialog(): void {
-    this._dialogRef.close();
-  }
+    expect(component.arrayPaiementOptions()).toEqual([
+      { id: 'card-0', label: 'Visa test' },
+      { id: 'card-1', label: 'Mastercard test' },
+    ]);
+  });
 
-  setSearchInputValue(value: string): void {
-    this.searchInputValue.set(value);
-  }
+  // -----------------------
+  // optionFind
+  // -----------------------
+  it('should close dialog with selected test card when option is valid', () => {
+    component.optionFind({ id: 'card-1' } as any);
+
+    expect(matDialogRefMock.close).toHaveBeenCalledWith({
+      number: '5555555555554444',
+    });
+  });
+
+  it('should not close dialog if option id is invalid', () => {
+    component.optionFind({ id: 'invalid-id' } as any);
+
+    expect(matDialogRefMock.close).not.toHaveBeenCalled();
+  });
+
+  // -----------------------
+  // closeDialog
+  // -----------------------
+  it('should close dialog without value', () => {
+    component.closeDialog();
+
+    expect(matDialogRefMock.close).toHaveBeenCalledWith();
+  });
+
+  // -----------------------
+  // setSearchInputValue
+  // -----------------------
+  it('should update search input value', () => {
+    component.setSearchInputValue('visa');
+
+    expect(component.searchInputValue()).toBe('visa');
+  });
+
+  // -----------------------
+  // isSmartphoneDisplay
+  // -----------------------
+  it('should detect smartphone display', () => {
+    (component as any).windowWidth.set(500);
+
+    expect(component.isSmartphoneDisplay()).toBeTrue();
+  });
+});
+
+
+class ApplePayTestCardsServiceMock {
+  setSortedCards = jasmine.createSpy('setSortedCards');
+  setTestCardsByScheme = jasmine.createSpy('setTestCardsByScheme');
+  setArrayPaiementOptions = jasmine.createSpy('setArrayPaiementOptions');
+
+  getArrayPaiementOptions = jasmine
+    .createSpy('getArrayPaiementOptions')
+    .and.returnValue([
+      { id: 'card-0', label: 'Visa test' },
+      { id: 'card-1', label: 'Mastercard test' },
+    ]);
+
+  getSortedCards = jasmine
+    .createSpy('getSortedCards')
+    .and.returnValue([
+      { number: '4111111111111111' },
+      { number: '5555555555554444' },
+    ]);
 }
 
-template
-<mat-dialog-content>
-  <p translate>PAYMENT_MEANS.CARD.TEST_CARD.LABEL</p>
-  <div style="position: relative;">
-    <pc-auto-complete
-      #autocomplete
-      icon="mp_ccard_picto_s"
-      [attr.placeholder]="'PAYMENT_MEANS.CARD.TEST_CARD.LABEL' | translate"
-      [label]="'PAYMENT_MEANS.CARD.TEST_CARD.TYPE_OF_DATA' | translate"
-      [arrayOptions]="arrayPaiementOptions()"
-      [ariaLabel]="'PAYMENT_MEANS.CARD.TEST_CARD.ARIA_LABEL' | translate"
-      (optionFindEvent)="optionFind($event)"
-      [searchInput]="searchInputValue()"
-      (searchInputChange)="setSearchInputValue($event)"
-      [autoOpen]="isSmartphoneDisplay()"
-      (backClickEvent)="closeDialog()"
-    ></pc-auto-complete>
-  </div>
-</mat-dialog-content>
-<mat-dialog-actions>
-  <button mat-button (click)="closeDialog()">
-    <span translate>_SHARED.CLOSE</span>
-  </button>
-</mat-dialog-actions>
