@@ -1,52 +1,75 @@
-import { from, Observable } from 'rxjs';
+@Component({
+  selector: 'pc-apple-pay-test-cards',
+  templateUrl: './apple-pay-test-cards.component.html',
+  styleUrl: './apple-pay-test-cards.component.scss',
+  standalone: true,
+  imports: [
+    AutoCompleteComponent,
+    TranslateDirective,
+    TranslatePipe,
+    MatButtonModule,
+    MatDialogContent,
+    MatDialogActions,
+  ],
+})
+export class ApplePayTestCardsComponent implements OnInit {
+  readonly arrayPaiementOptions: WritableSignal<ArrayOption[]> = signal<ArrayOption[]>([]);
+  readonly searchInputValue: WritableSignal<string> = signal<string>('');
 
-checkout(): Observable<CheckoutOutput> {
-  const isMobile = this._breakpointObserver.isMatched(MOBILE_BREAKPOINT);
+  private readonly _dialogRef = inject(MatDialogRef<ApplePayTestCardsComponent>);
+  private readonly _applePayTestCardsService = inject(ApplePayTestCardsService);
+  private windowWidth = signal(window.innerWidth);
 
-  const dialogRef = this._dialog.open<
-    ApplePayTestCardsComponent,
-    unknown,
-    TestCard | undefined
-  >(ApplePayTestCardsComponent, {
-    panelClass: isMobile
-      ? [MOBILE_DIALOG_CLASS, DESKTOP_DIALOG_CLASS]
-      : MOBILE_DIALOG_CLASS,
-  });
+  isSmartphoneDisplay: Signal<boolean> = computed(() => this.windowWidth() < 599);
 
-  // Wrap an async function in `from` to return Observable
-  return from(
-    (async () => {
-      const testCard = await firstValueFrom(dialogRef.afterClosed());
+  ngOnInit(): void {
+    this._applePayTestCardsService.setSortedCards();
+    this._applePayTestCardsService.setTestCardsByScheme();
+    this._applePayTestCardsService.setArrayPaiementOptions();
+    this.arrayPaiementOptions.set(this._applePayTestCardsService.getArrayPaiementOptions());
+  }
 
-      if (!testCard) {
-        throw new Error(
-          'ApplePaySandboxSDKAdapter | startTransaction | Carte sélectionnée inexistante'
-        );
-      }
+  optionFind(option: Option): void {
+    const tab = option.id.split('-');
+    const idx = Number(tab[1]);
+    const testCard = this._applePayTestCardsService.getSortedCards()[idx];
 
-      return {
-        token: btoa(
-          JSON.stringify({
-            account_number: testCard.account_number,
-            expiration_date: TestCardsService.getTwoYearsFromNowFormattedDate(),
-            cvx: '666',
-            holder_name: 'John Doe',
-            scheme: testCard.scheme,
-          })
-        ),
-      } as CheckoutOutput;
-    })()
-  );
+    if (tab.length !== 2 || Number.isNaN(Number(tab[1]))) {
+      return;
+    }
+    this._dialogRef.close(testCard);
+  }
+
+  closeDialog(): void {
+    this._dialogRef.close();
+  }
+
+  setSearchInputValue(value: string): void {
+    this.searchInputValue.set(value);
+  }
 }
 
-
-checkout(): Observable<CheckoutOutput> {
-    return this._applePayAdapter.checkout().pipe(
-      switchMap((output) => {
-        if (output) {
-          this._applePaySessionBuilderService.putToken(output.token);
-        }
-        return of(output);
-      }),
-    );
-  }
+template
+<mat-dialog-content>
+  <p translate>PAYMENT_MEANS.CARD.TEST_CARD.LABEL</p>
+  <div style="position: relative;">
+    <pc-auto-complete
+      #autocomplete
+      icon="mp_ccard_picto_s"
+      [attr.placeholder]="'PAYMENT_MEANS.CARD.TEST_CARD.LABEL' | translate"
+      [label]="'PAYMENT_MEANS.CARD.TEST_CARD.TYPE_OF_DATA' | translate"
+      [arrayOptions]="arrayPaiementOptions()"
+      [ariaLabel]="'PAYMENT_MEANS.CARD.TEST_CARD.ARIA_LABEL' | translate"
+      (optionFindEvent)="optionFind($event)"
+      [searchInput]="searchInputValue()"
+      (searchInputChange)="setSearchInputValue($event)"
+      [autoOpen]="isSmartphoneDisplay()"
+      (backClickEvent)="closeDialog()"
+    ></pc-auto-complete>
+  </div>
+</mat-dialog-content>
+<mat-dialog-actions>
+  <button mat-button (click)="closeDialog()">
+    <span translate>_SHARED.CLOSE</span>
+  </button>
+</mat-dialog-actions>
