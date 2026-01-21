@@ -28,3 +28,44 @@ checkout(): Observable<CheckoutOutput> {
       ),
     });
   }
+
+checkout(): Observable<CheckoutOutput> {
+  const isMobile = this._breakpointObserver.isMatched(MOBILE_BREAKPOINT);
+
+  const dialogRef = this._dialog.open<
+    ApplePayTestCardsComponent,
+    unknown,
+    TestCard | undefined
+  >(ApplePayTestCardsComponent, {
+    panelClass: isMobile
+      ? [MOBILE_DIALOG_CLASS, DESKTOP_DIALOG_CLASS]
+      : MOBILE_DIALOG_CLASS,
+  });
+
+  return dialogRef.afterClosed().pipe(
+    switchMap((testCard) => {
+      if (!testCard) {
+        return throwError(() =>
+          new Error(
+            'ApplePaySandboxSDKAdapter | startTransaction | Carte sélectionnée inexistante'
+          )
+        );
+      }
+
+      const output: CheckoutOutput = {
+        token: btoa(
+          JSON.stringify({
+            account_number: testCard.account_number,
+            expiration_date: TestCardsService.getTwoYearsFromNowFormattedDate(),
+            cvx: '666',
+            holder_name: 'John Doe',
+            scheme: testCard.scheme,
+          })
+        ),
+      };
+
+      return of(output);
+    })
+  );
+}
+
