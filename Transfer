@@ -1,49 +1,10 @@
-export interface ApplePaySDKPort {
-  startTransaction(): Promise<CheckoutOutput>;
-}
-
-export class ApplePayLiveAdapter implements ApplePaySDKPort {
-  session: any;
-
-  setSession(session: any): void {
-    this.session = session;
-  }
-
-  startTransaction(): void {
-    this.session.begin();
-  }
-}
-
-export class ApplePaySandboxAdapter implements ApplePaySDKPort {
-async startTransaction(): Promise<CheckoutOutput> {
-    console.log('testttt');
-    const isMobile = this._breakpointObserver.isMatched(MOBILE_BREAKPOINT);
-    const dialogRef = this._dialog.open<ApplePayTestCardsComponent, unknown, TestCard | undefined>(
-      ApplePayTestCardsComponent,
-      {
-        panelClass: isMobile ? [MOBILE_DIALOG_CLASS, DESKTOP_DIALOG_CLASS] : MOBILE_DIALOG_CLASS,
-      },
+checkout(): Observable<Redirection> {
+    return this._applePayAdapter.checkout().pipe(
+      switchMap((output) => {
+        if(output) {
+          this._applePaySessionBuilderService.putToken(output.token);
+        }
+        return of();
+      }),
     );
-
-    const testCard = await firstValueFrom(dialogRef.afterClosed());
-    if (!testCard) {
-      this._callback?.();
-      throw new Error(
-        'ApplePaySandboxSDKAdapter | startTransaction | Carte séléctionnée inexistante',
-      );
-    }
-    return {
-      checkoutResponse: {
-        payload: btoa(
-          JSON.stringify({
-            account_number: testCard.account_number,
-            expiration_date: TestCardsService.getTwoYearsFromNowFormattedDate(),
-            cvx: '666',
-            holder_name: 'John Doe',
-            scheme: testCard.scheme,
-          }),
-        ),
-      },
-    };
   }
-}
