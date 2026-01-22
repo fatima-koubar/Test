@@ -1,26 +1,68 @@
-@Component({
-  selector: 'pc-apple-pay-button',
-  templateUrl: './apple-pay-button.component.html',
-  imports: [ApplePayHostInjectorDirective],
-  standalone: true,
-})
-export class ApplePayButtonComponent {
-  readonly handleClick: OutputEmitterRef<void> = output<void>();
-  readonly isApplePaySupported: Signal<boolean> = computed(() => {
-    return this._applePayAdapterService.canApplePayPayment();
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { ApplePayButtonComponent } from './apple-pay-button.component';
+import { ApplePayAdapterService } from '../services/apple-pay-adapter.service';
+
+describe('ApplePayButtonComponent', () => {
+  let component: ApplePayButtonComponent;
+  let fixture: ComponentFixture<ApplePayButtonComponent>;
+  let applePayAdapterServiceSpy: jasmine.SpyObj<ApplePayAdapterService>;
+
+  beforeEach(async () => {
+    applePayAdapterServiceSpy = jasmine.createSpyObj<ApplePayAdapterService>(
+      'ApplePayAdapterService',
+      ['canApplePayPayment']
+    );
+
+    await TestBed.configureTestingModule({
+      imports: [ApplePayButtonComponent],
+      providers: [
+        { provide: ApplePayAdapterService, useValue: applePayAdapterServiceSpy },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(ApplePayButtonComponent);
+    component = fixture.componentInstance;
   });
 
-  private readonly _applePayAdapterService = inject(ApplePayAdapterService);
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
 
-  onClick(): void {
-    this.handleClick.emit();
-  }
-}
+  it('should expose isApplePaySupported as true when Apple Pay is supported', () => {
+    applePayAdapterServiceSpy.canApplePayPayment.and.returnValue(true);
 
-<div
-  applePayHostInjector
-  [isAvailable]="isApplePaySupported()"
-  [style]="'black'"
-  [type]="'pay'"
-  (onClick)="onClick()"
-></div>
+    // Trigger change detection so computed signal evaluates
+    fixture.detectChanges();
+
+    expect(component.isApplePaySupported()).toBeTrue();
+    expect(applePayAdapterServiceSpy.canApplePayPayment).toHaveBeenCalled();
+  });
+
+  it('should expose isApplePaySupported as false when Apple Pay is not supported', () => {
+    applePayAdapterServiceSpy.canApplePayPayment.and.returnValue(false);
+
+    fixture.detectChanges();
+
+    expect(component.isApplePaySupported()).toBeFalse();
+  });
+
+  it('should emit handleClick when onClick is called', () => {
+    const emitSpy = spyOn(component.handleClick, 'emit');
+
+    component.onClick();
+
+    expect(emitSpy).toHaveBeenCalled();
+  });
+
+  it('should emit handleClick when the div is clicked', () => {
+    const emitSpy = spyOn(component.handleClick, 'emit');
+
+    fixture.detectChanges();
+
+    const div: HTMLElement = fixture.nativeElement.querySelector('div');
+    div.dispatchEvent(new Event('click'));
+
+    expect(emitSpy).toHaveBeenCalled();
+  });
+});
