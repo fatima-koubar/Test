@@ -1,45 +1,138 @@
-const applePayPaymentMean = rawData._links.payment_means?.filter(
-          (pm: any) => pm.type === PAYMENT_MEAN_TYPES.APPLEPAY,
-        );
-        if (applePayPaymentMean && applePayPaymentMean.length > 0) {
-          await ressourceLoader.loadScript(ApplePayAdapter.SDK_URL, {
-            integrity: ApplePayAdapter.INTEGRITY_HASH,
-            crossOrigin: 'anonymous',
-          });
-          if (!rawData.sandbox && (window as any).ApplePaySession) {
-            const merchantIdentifier = (applePayPaymentMean[0] as HateoasPaymentMeanApplePay)
-              .merchantIdentifier;
-            const ApplePaySession = (window as any).ApplePaySession;
-            const capabilities = await ApplePaySession.applePayCapabilities(merchantIdentifier);
-            switch (capabilities.paymentCredentialStatus) {
-              case 'applePayUnsupported':
-                rawData._links.payment_means = rawData._links.payment_means?.filter(
-                  (pm: any) => pm.type !== PAYMENT_MEAN_TYPES.APPLEPAY,
-                );
-            }
-          }
-        }
+export class ApplePaySessionBuilderService {
+  brandList: string[] = [];
+  testCards: WritableSignal<TestCard[]> = signal<TestCard[]>([]);
+  payload: WritableSignal<ApplePaySessionPayload> = signal<ApplePaySessionPayload>({
+    collection_session_id: '',
+    merchant_identifier: '',
+    merchant_name: '',
+  });
+  countryCode: WritableSignal<string> = signal<string>('');
+  merchantName: WritableSignal<string> = signal<string>('');
+  amount: WritableSignal<string> = signal<string>('');
+  container!: ViewContainerRef;
 
+  private _callbackClose: (() => void) | undefined;
 
-const applePayPaymentMean = this.paymentMeans().find(
-      (paymentMean) => paymentMean.type === PAYMENT_MEAN_TYPES.APPLEPAY,
-    ) as ApplePay | undefined;
-    if (applePayPaymentMean) {
-      await this._ressourceLoader.loadScript(ApplePayAdapter.SDK_URL, {
-        integrity: ApplePayAdapter.INTEGRITY_HASH,
-        crossOrigin: 'anonymous',
+  private readonly _applePayApi = inject(ApplePayApi);
+  private readonly _toastrService = inject(PcToastrService);
+  private readonly _spinnerService = inject(SpinnerService);
+  private readonly _applePayService = inject(ApplePayService);
+  private readonly _applePayAdapter = inject(APPLE_PAY_ADAPTER);
+
+  setCloseEvent(callbackClose: () => void): void {
+    this._callbackClose = callbackClose;
+  }
+
+  setLoadingContainer(container: ViewContainerRef): void {
+    this.container = container;
+  }
+
+  async getData(): Promise<void> {
+    try {
+      const res = await firstValueFrom(this._applePayApi.getCollectionSessionData());
+      const adjustedValue = res.amount.value * Math.pow(10, res.amount.exponent);
+      const formattedValue = adjustedValue.toFixed(2);
+      this.setAmount(formattedValue);
+
+      this.setBrandList(
+        res.display_data['accepted_schemes'].map((scheme: any) => scheme.brand.toLowerCase()),
+      );
+      this.setTestCards(res.display_data['test_cards']);
+      this.setCountryCode(res.country_code);
+      this.setMerchantName(res.merchant_name);
+      this.setPayload({
+        collection_session_id: res.id,
+        merchant_name: res.merchant_name,
+        merchant_identifier: res.merchant_identifier,
+        domain: res.domain,
       });
-      if (!this._paymentSessionStore.sandbox && (window as any).ApplePaySession) {
-        const merchantIdentifier = applePayPaymentMean.merchantIdentifier;
-        const ApplePaySession = (window as any).ApplePaySession;
-        const capabilities = await ApplePaySession.applePayCapabilities(merchantIdentifier);
-        switch (capabilities.paymentCredentialStatus) {
-          case 'applePayUnsupported':
-            this._paymentSessionStore.setPaymentMeans(
-              this.links().paymentMeans?.filter(
-                (hateoasPaymentMean) => !(hateoasPaymentMean instanceof HateoasPaymentMeanApplePay),
-              ) ?? [],
-            );
-        }
-      }
+    } catch (error) {
+      this.notifyTechnicalError();
     }
+  }
+
+  initialize(): any {
+    const applePayRequest = new ApplePayRequestBuilder()
+      .setCountryCode(this.countryCode())
+      .setCurrencyCode('EUR')
+      .setMerchantCapabilities(['supports3DS'])
+      .setSupportedNetworks(this.brandList)
+      .setTotal({
+        label: this.merchantName(),
+        type: 'final',
+        amount: this.amount(),
+      })
+      .build();
+
+    const session = new ApplePaySessionBuilder(applePayRequest, this.payload())
+      .withValidationMerchantEventHandler(
+        async (merchantValidationRequest: MerchantValidationRequest) => {
+          try {
+            const data = await firstValueFrom(
+              this._applePayApi.merchantVerification(merchantValidationRequest),
+            );
+            const validationData: MerchantSession = {
+              displayName: data.display_name,
+              domainName: data.domain_name,
+              epochTimestamp: data.epoch_timestamp,
+              expiresAt: data.expires_at,
+              merchantIdentifier: data.merchant_identifier,
+              merchantSessionIdentifier: data.merchant_session_identifier,
+              nonce: data.nonce,
+              operationalAnalyticsIdentifier: data.operational_analytics_identifier,
+              pspId: data.psp_id,
+              retries: data.retries,
+              signature: data.signature,
+            };
+
+            return validationData;
+          } catch (error) {
+            this.notifyTechnicalError();
+            return;
+          }
+        },
+      )
+      .withPaymentAuthorizedEventHandler(async (token: string) => {
+        this._spinnerService.injectComponent(this.container);
+        this._applePayService.putToken(token);
+      })
+      .withCancelEventHandler(this._callbackClose)
+      .build();
+
+    return session;
+  }
+
+  startTransaction(): void {
+    const session = this.initialize();
+    this._applePayAdapter.setSession(session);
+    this._applePayAdapter.startTransaction();
+  }
+
+  private setBrandList(brandList: string[]): void {
+    this.brandList = brandList;
+  }
+
+  private setTestCards(testCards: TestCard[]): void {
+    this.testCards.set(testCards);
+  }
+
+  private setPayload(payload: ApplePaySessionPayload): void {
+    this.payload.set(payload);
+  }
+
+  private setCountryCode(countryCode: string): void {
+    this.countryCode.set(countryCode);
+  }
+
+  private setMerchantName(merchantName: string): void {
+    this.merchantName.set(merchantName);
+  }
+
+  private setAmount(amount: string): void {
+    this.amount.set(amount);
+  }
+
+  private notifyTechnicalError(): void {
+    this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
+  }
+}
