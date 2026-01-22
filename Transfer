@@ -1,111 +1,45 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ApplePayTestCardsComponent } from './apple-pay-test-cards.component';
-import { MatDialogRef } from '@angular/material/dialog';
-import { ApplePayTestCardsService } from '../services/apple-pay-test-cards.service';
-import { NO_ERRORS_SCHEMA } from '@angular/core';
-
-describe('ApplePayTestCardsComponent', () => {
-  let component: ApplePayTestCardsComponent;
-  let fixture: ComponentFixture<ApplePayTestCardsComponent>;
-  let service: ApplePayTestCardsService;
-
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [ApplePayTestCardsComponent], // standalone component
-      providers: [
-        { provide: MatDialogRef, useValue: matDialogRefMock },
-        { provide: ApplePayTestCardsService, useClass: ApplePayTestCardsServiceMock },
-      ],
-      schemas: [NO_ERRORS_SCHEMA], // ignore pc-auto-complete
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(ApplePayTestCardsComponent);
-    component = fixture.componentInstance;
-    service = TestBed.inject(ApplePayTestCardsService);
-    fixture.detectChanges();
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
-  // -----------------------
-  // ngOnInit
-  // -----------------------
-  it('should initialize payment options on init', () => {
-    expect(service.setSortedCards).toHaveBeenCalled();
-    expect(service.setTestCardsByScheme).toHaveBeenCalled();
-    expect(service.setArrayPaiementOptions).toHaveBeenCalled();
-
-    expect(component.arrayPaiementOptions()).toEqual([
-      { id: 'card-0', label: 'Visa test' },
-      { id: 'card-1', label: 'Mastercard test' },
-    ]);
-  });
-
-  // -----------------------
-  // optionFind
-  // -----------------------
-  it('should close dialog with selected test card when option is valid', () => {
-    component.optionFind({ id: 'card-1' } as any);
-
-    expect(matDialogRefMock.close).toHaveBeenCalledWith({
-      number: '5555555555554444',
-    });
-  });
-
-  it('should not close dialog if option id is invalid', () => {
-    component.optionFind({ id: 'invalid-id' } as any);
-
-    expect(matDialogRefMock.close).not.toHaveBeenCalled();
-  });
-
-  // -----------------------
-  // closeDialog
-  // -----------------------
-  it('should close dialog without value', () => {
-    component.closeDialog();
-
-    expect(matDialogRefMock.close).toHaveBeenCalledWith();
-  });
-
-  // -----------------------
-  // setSearchInputValue
-  // -----------------------
-  it('should update search input value', () => {
-    component.setSearchInputValue('visa');
-
-    expect(component.searchInputValue()).toBe('visa');
-  });
-
-  // -----------------------
-  // isSmartphoneDisplay
-  // -----------------------
-  it('should detect smartphone display', () => {
-    (component as any).windowWidth.set(500);
-
-    expect(component.isSmartphoneDisplay()).toBeTrue();
-  });
-});
+const applePayPaymentMean = rawData._links.payment_means?.filter(
+          (pm: any) => pm.type === PAYMENT_MEAN_TYPES.APPLEPAY,
+        );
+        if (applePayPaymentMean && applePayPaymentMean.length > 0) {
+          await ressourceLoader.loadScript(ApplePayAdapter.SDK_URL, {
+            integrity: ApplePayAdapter.INTEGRITY_HASH,
+            crossOrigin: 'anonymous',
+          });
+          if (!rawData.sandbox && (window as any).ApplePaySession) {
+            const merchantIdentifier = (applePayPaymentMean[0] as HateoasPaymentMeanApplePay)
+              .merchantIdentifier;
+            const ApplePaySession = (window as any).ApplePaySession;
+            const capabilities = await ApplePaySession.applePayCapabilities(merchantIdentifier);
+            switch (capabilities.paymentCredentialStatus) {
+              case 'applePayUnsupported':
+                rawData._links.payment_means = rawData._links.payment_means?.filter(
+                  (pm: any) => pm.type !== PAYMENT_MEAN_TYPES.APPLEPAY,
+                );
+            }
+          }
+        }
 
 
-class ApplePayTestCardsServiceMock {
-  setSortedCards = jasmine.createSpy('setSortedCards');
-  setTestCardsByScheme = jasmine.createSpy('setTestCardsByScheme');
-  setArrayPaiementOptions = jasmine.createSpy('setArrayPaiementOptions');
-
-  getArrayPaiementOptions = jasmine
-    .createSpy('getArrayPaiementOptions')
-    .and.returnValue([
-      { id: 'card-0', label: 'Visa test' },
-      { id: 'card-1', label: 'Mastercard test' },
-    ]);
-
-  getSortedCards = jasmine
-    .createSpy('getSortedCards')
-    .and.returnValue([
-      { number: '4111111111111111' },
-      { number: '5555555555554444' },
-    ]);
-}
-
+const applePayPaymentMean = this.paymentMeans().find(
+      (paymentMean) => paymentMean.type === PAYMENT_MEAN_TYPES.APPLEPAY,
+    ) as ApplePay | undefined;
+    if (applePayPaymentMean) {
+      await this._ressourceLoader.loadScript(ApplePayAdapter.SDK_URL, {
+        integrity: ApplePayAdapter.INTEGRITY_HASH,
+        crossOrigin: 'anonymous',
+      });
+      if (!this._paymentSessionStore.sandbox && (window as any).ApplePaySession) {
+        const merchantIdentifier = applePayPaymentMean.merchantIdentifier;
+        const ApplePaySession = (window as any).ApplePaySession;
+        const capabilities = await ApplePaySession.applePayCapabilities(merchantIdentifier);
+        switch (capabilities.paymentCredentialStatus) {
+          case 'applePayUnsupported':
+            this._paymentSessionStore.setPaymentMeans(
+              this.links().paymentMeans?.filter(
+                (hateoasPaymentMean) => !(hateoasPaymentMean instanceof HateoasPaymentMeanApplePay),
+              ) ?? [],
+            );
+        }
+      }
+    }
