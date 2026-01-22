@@ -1,138 +1,157 @@
-export class ApplePaySessionBuilderService {
-  brandList: string[] = [];
-  testCards: WritableSignal<TestCard[]> = signal<TestCard[]>([]);
-  payload: WritableSignal<ApplePaySessionPayload> = signal<ApplePaySessionPayload>({
-    collection_session_id: '',
-    merchant_identifier: '',
-    merchant_name: '',
-  });
-  countryCode: WritableSignal<string> = signal<string>('');
-  merchantName: WritableSignal<string> = signal<string>('');
-  amount: WritableSignal<string> = signal<string>('');
-  container!: ViewContainerRef;
+@Injectable({ providedIn: 'root' })
+export class ApplePayDataService {
+  private readonly _applePayApi = inject(ApplePayApi);
+  private readonly _toastrService = inject(PcToastrService);
 
-  private _callbackClose: (() => void) | undefined;
+  async loadCollectionSession(): Promise<{
+    brandList: string[];
+    testCards: TestCard[];
+    countryCode: string;
+    merchantName: string;
+    amount: string;
+    payload: ApplePaySessionPayload;
+  }> {
+    try {
+      const res = await firstValueFrom(
+        this._applePayApi.getCollectionSessionData(),
+      );
 
+      const adjustedValue = res.amount.value * Math.pow(10, res.amount.exponent);
+      const formattedValue = adjustedValue.toFixed(2);
+
+      return {
+        brandList: res.display_data.accepted_schemes.map(
+          (scheme: any) => scheme.brand.toLowerCase(),
+        ),
+        testCards: res.display_data.test_cards,
+        countryCode: res.country_code,
+        merchantName: res.merchant_name,
+        amount: formattedValue,
+        payload: {
+          collection_session_id: res.id,
+          merchant_identifier: res.merchant_identifier,
+          merchant_name: res.merchant_name,
+          domain: res.domain,
+        },
+      };
+    } catch {
+      this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
+      throw new Error('APPLE_PAY_DATA_ERROR');
+    }
+  }
+}
+
+
+
+@Injectable({ providedIn: 'root' })
+export class ApplePaySessionFactoryService {
   private readonly _applePayApi = inject(ApplePayApi);
   private readonly _toastrService = inject(PcToastrService);
   private readonly _spinnerService = inject(SpinnerService);
   private readonly _applePayService = inject(ApplePayService);
+
+  createSession(params: {
+    countryCode: string;
+    brandList: string[];
+    merchantName: string;
+    amount: string;
+    payload: ApplePaySessionPayload;
+    container: ViewContainerRef;
+    onCancel?: () => void;
+  }): ApplePaySession {
+    const request = new ApplePayRequestBuilder()
+      .setCountryCode(params.countryCode)
+      .setCurrencyCode('EUR')
+      .setMerchantCapabilities(['supports3DS'])
+      .setSupportedNetworks(params.brandList)
+      .setTotal({
+        label: params.merchantName,
+        type: 'final',
+        amount: params.amount,
+      })
+      .build();
+
+    return new ApplePaySessionBuilder(request, params.payload)
+      .withValidationMerchantEventHandler(async (validationRequest) => {
+        try {
+          const data = await firstValueFrom(
+            this._applePayApi.merchantVerification(validationRequest),
+          );
+
+          return {
+            displayName: data.display_name,
+            domainName: data.domain_name,
+            epochTimestamp: data.epoch_timestamp,
+            expiresAt: data.expires_at,
+            merchantIdentifier: data.merchant_identifier,
+            merchantSessionIdentifier: data.merchant_session_identifier,
+            nonce: data.nonce,
+            operationalAnalyticsIdentifier: data.operational_analytics_identifier,
+            pspId: data.psp_id,
+            retries: data.retries,
+            signature: data.signature,
+          } as MerchantSession;
+        } catch {
+          this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
+          return;
+        }
+      })
+      .withPaymentAuthorizedEventHandler((token: string) => {
+        this._spinnerService.injectComponent(params.container);
+        this._applePayService.putToken(token);
+      })
+      .withCancelEventHandler(params.onCancel)
+      .build();
+  }
+}
+
+
+@Injectable({ providedIn: 'root' })
+export class ApplePayFlowService {
+  testCards = signal<TestCard[]>([]);
+  private brandList: string[] = [];
+  private countryCode = '';
+  private merchantName = '';
+  private amount = '';
+  private payload!: ApplePaySessionPayload;
+  private container!: ViewContainerRef;
+  private onClose?: () => void;
+
+  private readonly _dataService = inject(ApplePayDataService);
+  private readonly _sessionFactory = inject(ApplePaySessionFactoryService);
   private readonly _applePayAdapter = inject(APPLE_PAY_ADAPTER);
 
-  setCloseEvent(callbackClose: () => void): void {
-    this._callbackClose = callbackClose;
-  }
-
-  setLoadingContainer(container: ViewContainerRef): void {
+  setContainer(container: ViewContainerRef): void {
     this.container = container;
   }
 
-  async getData(): Promise<void> {
-    try {
-      const res = await firstValueFrom(this._applePayApi.getCollectionSessionData());
-      const adjustedValue = res.amount.value * Math.pow(10, res.amount.exponent);
-      const formattedValue = adjustedValue.toFixed(2);
-      this.setAmount(formattedValue);
-
-      this.setBrandList(
-        res.display_data['accepted_schemes'].map((scheme: any) => scheme.brand.toLowerCase()),
-      );
-      this.setTestCards(res.display_data['test_cards']);
-      this.setCountryCode(res.country_code);
-      this.setMerchantName(res.merchant_name);
-      this.setPayload({
-        collection_session_id: res.id,
-        merchant_name: res.merchant_name,
-        merchant_identifier: res.merchant_identifier,
-        domain: res.domain,
-      });
-    } catch (error) {
-      this.notifyTechnicalError();
-    }
+  setCloseCallback(callback: () => void): void {
+    this.onClose = callback;
   }
 
-  initialize(): any {
-    const applePayRequest = new ApplePayRequestBuilder()
-      .setCountryCode(this.countryCode())
-      .setCurrencyCode('EUR')
-      .setMerchantCapabilities(['supports3DS'])
-      .setSupportedNetworks(this.brandList)
-      .setTotal({
-        label: this.merchantName(),
-        type: 'final',
-        amount: this.amount(),
-      })
-      .build();
+  async init(): Promise<void> {
+    const data = await this._dataService.loadCollectionSession();
 
-    const session = new ApplePaySessionBuilder(applePayRequest, this.payload())
-      .withValidationMerchantEventHandler(
-        async (merchantValidationRequest: MerchantValidationRequest) => {
-          try {
-            const data = await firstValueFrom(
-              this._applePayApi.merchantVerification(merchantValidationRequest),
-            );
-            const validationData: MerchantSession = {
-              displayName: data.display_name,
-              domainName: data.domain_name,
-              epochTimestamp: data.epoch_timestamp,
-              expiresAt: data.expires_at,
-              merchantIdentifier: data.merchant_identifier,
-              merchantSessionIdentifier: data.merchant_session_identifier,
-              nonce: data.nonce,
-              operationalAnalyticsIdentifier: data.operational_analytics_identifier,
-              pspId: data.psp_id,
-              retries: data.retries,
-              signature: data.signature,
-            };
-
-            return validationData;
-          } catch (error) {
-            this.notifyTechnicalError();
-            return;
-          }
-        },
-      )
-      .withPaymentAuthorizedEventHandler(async (token: string) => {
-        this._spinnerService.injectComponent(this.container);
-        this._applePayService.putToken(token);
-      })
-      .withCancelEventHandler(this._callbackClose)
-      .build();
-
-    return session;
+    this.brandList = data.brandList;
+    this.testCards.set(data.testCards);
+    this.countryCode = data.countryCode;
+    this.merchantName = data.merchantName;
+    this.amount = data.amount;
+    this.payload = data.payload;
   }
 
-  startTransaction(): void {
-    const session = this.initialize();
+  start(): void {
+    const session = this._sessionFactory.createSession({
+      countryCode: this.countryCode,
+      brandList: this.brandList,
+      merchantName: this.merchantName,
+      amount: this.amount,
+      payload: this.payload,
+      container: this.container,
+      onCancel: this.onClose,
+    });
+
     this._applePayAdapter.setSession(session);
     this._applePayAdapter.startTransaction();
-  }
-
-  private setBrandList(brandList: string[]): void {
-    this.brandList = brandList;
-  }
-
-  private setTestCards(testCards: TestCard[]): void {
-    this.testCards.set(testCards);
-  }
-
-  private setPayload(payload: ApplePaySessionPayload): void {
-    this.payload.set(payload);
-  }
-
-  private setCountryCode(countryCode: string): void {
-    this.countryCode.set(countryCode);
-  }
-
-  private setMerchantName(merchantName: string): void {
-    this.merchantName.set(merchantName);
-  }
-
-  private setAmount(amount: string): void {
-    this.amount.set(amount);
-  }
-
-  private notifyTechnicalError(): void {
-    this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
   }
 }
