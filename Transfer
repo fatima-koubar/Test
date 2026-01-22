@@ -1,157 +1,116 @@
-@Injectable({ providedIn: 'root' })
-export class ApplePayDataService {
-  private readonly _applePayApi = inject(ApplePayApi);
-  private readonly _toastrService = inject(PcToastrService);
+class ApplePayTestCardsServiceMock {
+  setSortedCards = jasmine.createSpy('setSortedCards');
+  setTestCardsByScheme = jasmine.createSpy('setTestCardsByScheme');
+  setArrayPaiementOptions = jasmine.createSpy('setArrayPaiementOptions');
 
-  async loadCollectionSession(): Promise<{
-    brandList: string[];
-    testCards: TestCard[];
-    countryCode: string;
-    merchantName: string;
-    amount: string;
-    payload: ApplePaySessionPayload;
-  }> {
-    try {
-      const res = await firstValueFrom(
-        this._applePayApi.getCollectionSessionData(),
-      );
+  getArrayPaiementOptions = jasmine
+    .createSpy('getArrayPaiementOptions')
+    .and.returnValue([
+      { id: 'card-0', label: 'Visa test' },
+      { id: 'card-1', label: 'Mastercard test' },
+    ]);
 
-      const adjustedValue = res.amount.value * Math.pow(10, res.amount.exponent);
-      const formattedValue = adjustedValue.toFixed(2);
-
-      return {
-        brandList: res.display_data.accepted_schemes.map(
-          (scheme: any) => scheme.brand.toLowerCase(),
-        ),
-        testCards: res.display_data.test_cards,
-        countryCode: res.country_code,
-        merchantName: res.merchant_name,
-        amount: formattedValue,
-        payload: {
-          collection_session_id: res.id,
-          merchant_identifier: res.merchant_identifier,
-          merchant_name: res.merchant_name,
-          domain: res.domain,
-        },
-      };
-    } catch {
-      this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
-      throw new Error('APPLE_PAY_DATA_ERROR');
-    }
-  }
+  getSortedCards = jasmine
+    .createSpy('getSortedCards')
+    .and.returnValue([
+      { number: '4111111111111111' },
+      { number: '5555555555554444' },
+    ]);
 }
 
 
 
-@Injectable({ providedIn: 'root' })
-export class ApplePaySessionFactoryService {
-  private readonly _applePayApi = inject(ApplePayApi);
-  private readonly _toastrService = inject(PcToastrService);
-  private readonly _spinnerService = inject(SpinnerService);
-  private readonly _applePayService = inject(ApplePayService);
-
-  createSession(params: {
-    countryCode: string;
-    brandList: string[];
-    merchantName: string;
-    amount: string;
-    payload: ApplePaySessionPayload;
-    container: ViewContainerRef;
-    onCancel?: () => void;
-  }): ApplePaySession {
-    const request = new ApplePayRequestBuilder()
-      .setCountryCode(params.countryCode)
-      .setCurrencyCode('EUR')
-      .setMerchantCapabilities(['supports3DS'])
-      .setSupportedNetworks(params.brandList)
-      .setTotal({
-        label: params.merchantName,
-        type: 'final',
-        amount: params.amount,
-      })
-      .build();
-
-    return new ApplePaySessionBuilder(request, params.payload)
-      .withValidationMerchantEventHandler(async (validationRequest) => {
-        try {
-          const data = await firstValueFrom(
-            this._applePayApi.merchantVerification(validationRequest),
-          );
-
-          return {
-            displayName: data.display_name,
-            domainName: data.domain_name,
-            epochTimestamp: data.epoch_timestamp,
-            expiresAt: data.expires_at,
-            merchantIdentifier: data.merchant_identifier,
-            merchantSessionIdentifier: data.merchant_session_identifier,
-            nonce: data.nonce,
-            operationalAnalyticsIdentifier: data.operational_analytics_identifier,
-            pspId: data.psp_id,
-            retries: data.retries,
-            signature: data.signature,
-          } as MerchantSession;
-        } catch {
-          this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
-          return;
-        }
-      })
-      .withPaymentAuthorizedEventHandler((token: string) => {
-        this._spinnerService.injectComponent(params.container);
-        this._applePayService.putToken(token);
-      })
-      .withCancelEventHandler(params.onCancel)
-      .build();
-  }
-}
+const matDialogRefMock = {
+  close: jasmine.createSpy('close'),
+};
 
 
-@Injectable({ providedIn: 'root' })
-export class ApplePayFlowService {
-  testCards = signal<TestCard[]>([]);
-  private brandList: string[] = [];
-  private countryCode = '';
-  private merchantName = '';
-  private amount = '';
-  private payload!: ApplePaySessionPayload;
-  private container!: ViewContainerRef;
-  private onClose?: () => void;
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ApplePayTestCardsComponent } from './apple-pay-test-cards.component';
+import { MatDialogRef } from '@angular/material/dialog';
+import { ApplePayTestCardsService } from '../services/apple-pay-test-cards.service';
+import { NO_ERRORS_SCHEMA } from '@angular/core';
 
-  private readonly _dataService = inject(ApplePayDataService);
-  private readonly _sessionFactory = inject(ApplePaySessionFactoryService);
-  private readonly _applePayAdapter = inject(APPLE_PAY_ADAPTER);
+describe('ApplePayTestCardsComponent', () => {
+  let component: ApplePayTestCardsComponent;
+  let fixture: ComponentFixture<ApplePayTestCardsComponent>;
+  let service: ApplePayTestCardsService;
 
-  setContainer(container: ViewContainerRef): void {
-    this.container = container;
-  }
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ApplePayTestCardsComponent], // standalone component
+      providers: [
+        { provide: MatDialogRef, useValue: matDialogRefMock },
+        { provide: ApplePayTestCardsService, useClass: ApplePayTestCardsServiceMock },
+      ],
+      schemas: [NO_ERRORS_SCHEMA], // ignore pc-auto-complete
+    }).compileComponents();
 
-  setCloseCallback(callback: () => void): void {
-    this.onClose = callback;
-  }
+    fixture = TestBed.createComponent(ApplePayTestCardsComponent);
+    component = fixture.componentInstance;
+    service = TestBed.inject(ApplePayTestCardsService);
+    fixture.detectChanges();
+  });
 
-  async init(): Promise<void> {
-    const data = await this._dataService.loadCollectionSession();
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
 
-    this.brandList = data.brandList;
-    this.testCards.set(data.testCards);
-    this.countryCode = data.countryCode;
-    this.merchantName = data.merchantName;
-    this.amount = data.amount;
-    this.payload = data.payload;
-  }
+  // -----------------------
+  // ngOnInit
+  // -----------------------
+  it('should initialize payment options on init', () => {
+    expect(service.setSortedCards).toHaveBeenCalled();
+    expect(service.setTestCardsByScheme).toHaveBeenCalled();
+    expect(service.setArrayPaiementOptions).toHaveBeenCalled();
 
-  start(): void {
-    const session = this._sessionFactory.createSession({
-      countryCode: this.countryCode,
-      brandList: this.brandList,
-      merchantName: this.merchantName,
-      amount: this.amount,
-      payload: this.payload,
-      container: this.container,
-      onCancel: this.onClose,
+    expect(component.arrayPaiementOptions()).toEqual([
+      { id: 'card-0', label: 'Visa test' },
+      { id: 'card-1', label: 'Mastercard test' },
+    ]);
+  });
+
+  // -----------------------
+  // optionFind
+  // -----------------------
+  it('should close dialog with selected test card when option is valid', () => {
+    component.optionFind({ id: 'card-1' } as any);
+
+    expect(matDialogRefMock.close).toHaveBeenCalledWith({
+      number: '5555555555554444',
     });
+  });
 
-    this._applePayAdapter.setSession(session);
-    this._applePayAdapter.startTransaction();
-  }
-}
+  it('should not close dialog if option id is invalid', () => {
+    component.optionFind({ id: 'invalid-id' } as any);
+
+    expect(matDialogRefMock.close).not.toHaveBeenCalled();
+  });
+
+  // -----------------------
+  // closeDialog
+  // -----------------------
+  it('should close dialog without value', () => {
+    component.closeDialog();
+
+    expect(matDialogRefMock.close).toHaveBeenCalledWith();
+  });
+
+  // -----------------------
+  // setSearchInputValue
+  // -----------------------
+  it('should update search input value', () => {
+    component.setSearchInputValue('visa');
+
+    expect(component.searchInputValue()).toBe('visa');
+  });
+
+  // -----------------------
+  // isSmartphoneDisplay
+  // -----------------------
+  it('should detect smartphone display', () => {
+    (component as any).windowWidth.set(500);
+
+    expect(component.isSmartphoneDisplay()).toBeTrue();
+  });
+});
