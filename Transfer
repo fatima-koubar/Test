@@ -1,171 +1,58 @@
-import { inject, Injectable, signal, ViewContainerRef } from '@angular/core';
-import { TestCard } from '../../card/models/test-card';
-import { ApplePaySessionPayload } from '../models/apple-pay-session-payload.model';
-import { APPLE_PAY_ADAPTER } from '../injection-tokens/apple-pay-adapters.injection-token';
-import { ApplePaySessionBuilderService } from '../adapters/implementations/live/apple-pay-session-builder.service';
-import { ApplePayService } from './apple-pay.service';
+import { computed, inject, Injectable, signal } from '@angular/core';
+import { ApiCallerService, ApiUrlService } from '../../core';
+import { map, Observable } from 'rxjs';
+import { MerchantValidationRequest } from '../models/merchant-validation-request.model';
+import { ApplePayDTO } from './dtos/apple-pay.dto';
+import { MerchantVerificationDTO } from './dtos/merchant-verification.dto';
+import { validateApplePayDTO, validateMerchantVerificationDTO } from './validators';
 
-@Injectable({ providedIn: 'root' })
-export class ApplePayFlowService {
-  testCards = signal<TestCard[]>([]);
+const merchantverificationPath = '/applepay/merchantverification';
 
-  private brandList: string[] = [];
-  private countryCode = '';
-  private merchantName = '';
-  private amount = '';
-  private payload!: ApplePaySessionPayload;
-  private container!: ViewContainerRef;
-  private onClose?: () => void;
+@Injectable({
+  providedIn: 'root',
+})
+export class ApplePayApi {
+  private readonly _apiCallerService = inject(ApiCallerService);
+  private readonly _apiUrlService = inject(ApiUrlService);
+  private readonly _apiBaseUrl = signal<string>(this._apiUrlService.apiUrl());
+  private readonly collectionSessionHref = signal<string>('');
 
-  private readonly _applePayService = inject(ApplePayService);
-  private readonly _applePaySessionBuilderService = inject(ApplePaySessionBuilderService);
-  private readonly _applePayAdapter = inject(APPLE_PAY_ADAPTER);
+  private readonly sessionEndpoint = computed(
+    () => `${this._apiBaseUrl()}${this.collectionSessionHref()}`,
+  );
 
-  setContainer(container: ViewContainerRef): void {
-    this.container = container;
+  public setCollectionSessionHref(href: string): void {
+    return this.collectionSessionHref.set(href);
   }
 
-  setCloseEvent(callback: () => void): void {
-    this.onClose = callback;
+  public getCollectionSessionData(): Observable<ApplePayDTO> {
+    return this._apiCallerService.get(this.sessionEndpoint()).pipe(
+      map((raw) => {
+        validateApplePayDTO(raw);
+        return raw;
+      }),
+    );
   }
 
-  async init(): Promise<void> {
-    const data = await this._applePayService.getCollectionSessionData();
-
-    this.brandList = data.brandList;
-    this.testCards.set(data.testCards);
-    this.countryCode = data.countryCode;
-    this.merchantName = data.merchantName;
-    this.amount = data.amount;
-    this.payload = data.payload;
+  public putToken(token: string): Observable<void> {
+    return this._apiCallerService
+      .put(`${this.sessionEndpoint()}/token`, { token: token })
+      .pipe(map(() => {}));
   }
 
-  startTransaction(): void {
-    const session = this._applePaySessionBuilderService.createSession({
-      countryCode: this.countryCode,
-      brandList: this.brandList,
-      merchantName: this.merchantName,
-      amount: this.amount,
-      payload: this.payload,
-      container: this.container,
-      onCancel: this.onClose,
-    });
-
-    this._applePayAdapter.setSession(session);
-    this._applePayAdapter.startTransaction();
+  public merchantVerification(
+    merchantValidationRequest: MerchantValidationRequest,
+  ): Observable<MerchantVerificationDTO> | never {
+    return this._apiCallerService
+      .post(
+        'https://' + window.location.hostname + merchantverificationPath,
+        JSON.stringify(merchantValidationRequest),
+      )
+      .pipe(
+        map((raw) => {
+          validateMerchantVerificationDTO(raw);
+          return raw;
+        }),
+      );
   }
 }
-
-
-
-
-
-
-
-import { TestBed } from '@angular/core/testing';
-import { ViewContainerRef, signal } from '@angular/core';
-
-import { ApplePayFlowService } from './apple-pay-flow.service';
-import { ApplePayService } from './apple-pay.service';
-import { ApplePaySessionBuilderService } from '../adapters/implementations/live/apple-pay-session-builder.service';
-import { APPLE_PAY_ADAPTER } from '../injection-tokens/apple-pay-adapters.injection-token';
-import { ApplePaySessionPayload } from '../models/apple-pay-session-payload.model';
-import { TestCard } from '../../card/models/test-card';
-
-describe('ApplePayFlowService', () => {
-  let service: ApplePayFlowService;
-
-  let applePayServiceSpy: jasmine.SpyObj<ApplePayService>;
-  let sessionBuilderSpy: jasmine.SpyObj<ApplePaySessionBuilderService>;
-  let applePayAdapterSpy: jasmine.SpyObj<any>;
-
-  const mockPayload = {} as ApplePaySessionPayload;
-  const mockTestCards: TestCard[] = [{ id: '1' } as TestCard];
-
-  beforeEach(() => {
-    applePayServiceSpy = jasmine.createSpyObj('ApplePayService', [
-      'getCollectionSessionData',
-    ]);
-
-    sessionBuilderSpy = jasmine.createSpyObj(
-      'ApplePaySessionBuilderService',
-      ['createSession']
-    );
-
-    applePayAdapterSpy = jasmine.createSpyObj('ApplePayAdapter', [
-      'setSession',
-      'startTransaction',
-    ]);
-
-    TestBed.configureTestingModule({
-      providers: [
-        ApplePayFlowService,
-        { provide: ApplePayService, useValue: applePayServiceSpy },
-        {
-          provide: ApplePaySessionBuilderService,
-          useValue: sessionBuilderSpy,
-        },
-        { provide: APPLE_PAY_ADAPTER, useValue: applePayAdapterSpy },
-      ],
-    });
-
-    service = TestBed.inject(ApplePayFlowService);
-  });
-
-  it('should be created', () => {
-    expect(service).toBeTruthy();
-  });
-
-  describe('init()', () => {
-    it('should load session data and update internal state', async () => {
-      applePayServiceSpy.getCollectionSessionData.and.resolveTo({
-        brandList: ['visa', 'mastercard'],
-        testCards: mockTestCards,
-        countryCode: 'US',
-        merchantName: 'Test Merchant',
-        amount: '10.00',
-        payload: mockPayload,
-      });
-
-      await service.init();
-
-      expect(applePayServiceSpy.getCollectionSessionData).toHaveBeenCalled();
-      expect(service.testCards()).toEqual(mockTestCards);
-    });
-  });
-
-  describe('startTransaction()', () => {
-    it('should create session and start Apple Pay transaction', () => {
-      const mockContainer = {} as ViewContainerRef;
-      const mockSession = { sessionId: 'abc' };
-      const onCloseSpy = jasmine.createSpy('onClose');
-
-      service.setContainer(mockContainer);
-      service.setCloseEvent(onCloseSpy);
-
-      // Manually set private state via init flow
-      (service as any).brandList = ['visa'];
-      (service as any).countryCode = 'US';
-      (service as any).merchantName = 'Test Merchant';
-      (service as any).amount = '10.00';
-      (service as any).payload = mockPayload;
-
-      sessionBuilderSpy.createSession.and.returnValue(mockSession);
-
-      service.startTransaction();
-
-      expect(sessionBuilderSpy.createSession).toHaveBeenCalledWith({
-        countryCode: 'US',
-        brandList: ['visa'],
-        merchantName: 'Test Merchant',
-        amount: '10.00',
-        payload: mockPayload,
-        container: mockContainer,
-        onCancel: onCloseSpy,
-      });
-
-      expect(applePayAdapterSpy.setSession).toHaveBeenCalledWith(mockSession);
-      expect(applePayAdapterSpy.startTransaction).toHaveBeenCalled();
-    });
-  });
-});
