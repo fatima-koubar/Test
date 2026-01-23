@@ -69,3 +69,170 @@ export class ApplePaySessionBuilderService {
       .build();
   }
 }
+
+
+
+
+
+
+import { TestBed } from '@angular/core/testing';
+import { ApplePaySessionBuilderService } from './apple-pay-session-builder.service';
+import { ApplePayApi } from '../../../api/apple-pay.api';
+import { PcToastrService } from '../../../../core';
+import { ApplePayService } from '../../../services/apple-pay.service';
+import { of, throwError } from 'rxjs';
+import { ViewContainerRef } from '@angular/core';
+
+describe('ApplePaySessionBuilderService', () => {
+  let service: ApplePaySessionBuilderService;
+  let applePayApi: jasmine.SpyObj<ApplePayApi>;
+  let toastr: jasmine.SpyObj<PcToastrService>;
+  let applePayService: jasmine.SpyObj<ApplePayService>;
+
+  const mockContainer = {} as ViewContainerRef;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        ApplePaySessionBuilderService,
+        {
+          provide: ApplePayApi,
+          useValue: jasmine.createSpyObj('ApplePayApi', [
+            'merchantVerification',
+          ]),
+        },
+        {
+          provide: PcToastrService,
+          useValue: jasmine.createSpyObj('PcToastrService', ['notify']),
+        },
+        {
+          provide: ApplePayService,
+          useValue: jasmine.createSpyObj('ApplePayService', ['putToken']),
+        },
+      ],
+    });
+
+    service = TestBed.inject(ApplePaySessionBuilderService);
+    applePayApi = TestBed.inject(
+      ApplePayApi,
+    ) as jasmine.SpyObj<ApplePayApi>;
+    toastr = TestBed.inject(
+      PcToastrService,
+    ) as jasmine.SpyObj<PcToastrService>;
+    applePayService = TestBed.inject(
+      ApplePayService,
+    ) as jasmine.SpyObj<ApplePayService>;
+  });
+
+  it('should create an ApplePaySessionBuilder instance', () => {
+    const session = service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa', 'mastercard'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: mockContainer,
+    });
+
+    expect(session).toBeTruthy();
+  });
+
+  it('should return merchant session data on successful merchant validation', async () => {
+    applePayApi.merchantVerification.and.returnValue(
+      of({
+        display_name: 'Test Merchant',
+        domain_name: 'example.com',
+        epoch_timestamp: 123,
+        expires_at: 456,
+        merchant_identifier: 'merchant.id',
+        merchant_session_identifier: 'session.id',
+        nonce: 'nonce',
+        operational_analytics_identifier: 'op.id',
+        psp_id: 'psp',
+        retries: 0,
+        signature: 'signature',
+      }),
+    );
+
+    const sessionBuilder: any = service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: mockContainer,
+    });
+
+    const validationHandler =
+      sessionBuilder._validationMerchantEventHandler;
+
+    const result = await validationHandler({} as any);
+
+    expect(result.merchantIdentifier).toBe('merchant.id');
+    expect(toastr.notify).not.toHaveBeenCalled();
+  });
+
+  it('should notify technical error when merchant validation fails', async () => {
+    applePayApi.merchantVerification.and.returnValue(
+      throwError(() => new Error('error')),
+    );
+
+    const sessionBuilder: any = service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: mockContainer,
+    });
+
+    const validationHandler =
+      sessionBuilder._validationMerchantEventHandler;
+
+    const result = await validationHandler({} as any);
+
+    expect(result).toBeUndefined();
+    expect(toastr.notify).toHaveBeenCalledWith(
+      '_SHARED.ERRORS.TECHNICAL_PROBLEM',
+    );
+  });
+
+  it('should forward token on payment authorization', async () => {
+    const sessionBuilder: any = service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: mockContainer,
+    });
+
+    const paymentHandler =
+      sessionBuilder._paymentAuthorizedEventHandler;
+
+    await paymentHandler('apple-pay-token');
+
+    expect(applePayService.putToken).toHaveBeenCalledWith(
+      'apple-pay-token',
+    );
+  });
+
+  it('should call cancel handler when provided', () => {
+    const onCancel = jasmine.createSpy('onCancel');
+
+    const sessionBuilder: any = service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: mockContainer,
+      onCancel,
+    });
+
+    sessionBuilder._cancelEventHandler();
+
+    expect(onCancel).toHaveBeenCalled();
+  });
+});
+
