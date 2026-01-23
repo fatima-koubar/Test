@@ -1,13 +1,196 @@
-beforeAll(() => {
-  (window as any).ApplePaySession = jasmine.createSpy('ApplePaySession')
-    .and.callFake(() => ({
-      begin: jasmine.createSpy('begin'),
-      abort: jasmine.createSpy('abort'),
-      completeMerchantValidation: jasmine.createSpy('completeMerchantValidation'),
-      completePayment: jasmine.createSpy('completePayment'),
-      onvalidatemerchant: null,
-      onpaymentauthorized: null,
-      oncancel: null,
-    }));
-});
+import { TestBed } from '@angular/core/testing';
+import { ApplePaySessionBuilderService } from './apple-pay-session-builder.service';
+import { ApplePayApi } from '../../../api/apple-pay.api';
+import { PcToastrService } from '../../../../core';
+import { ApplePayService } from '../../../services/apple-pay.service';
+import { of, throwError } from 'rxjs';
+import * as BuilderModule from './builders/apple-pay-session.builder';
 
+describe('ApplePaySessionBuilderService', () => {
+  let service: ApplePaySessionBuilderService;
+  let applePayApi: jasmine.SpyObj<ApplePayApi>;
+  let toastr: jasmine.SpyObj<PcToastrService>;
+  let applePayService: jasmine.SpyObj<ApplePayService>;
+
+  beforeAll(() => {
+    // Prevent "ApplePaySession is not a constructor"
+    (window as any).ApplePaySession = jasmine
+      .createSpy('ApplePaySession')
+      .and.callFake(() => ({}));
+  });
+
+  beforeEach(() => {
+    // Mock ApplePaySessionBuilder completely (prevents ViewContainerRef issues)
+    spyOn(BuilderModule, 'ApplePaySessionBuilder').and.callFake(
+      function () {
+        return {
+          withValidationMerchantEventHandler() {
+            return this;
+          },
+          withPaymentAuthorizedEventHandler() {
+            return this;
+          },
+          withCancelEventHandler() {
+            return this;
+          },
+          build() {
+            return {}; // we don’t need the real session
+          },
+        } as any;
+      },
+    );
+
+    TestBed.configureTestingModule({
+      providers: [
+        ApplePaySessionBuilderService,
+        {
+          provide: ApplePayApi,
+          useValue: jasmine.createSpyObj('ApplePayApi', [
+            'merchantVerification',
+          ]),
+        },
+        {
+          provide: PcToastrService,
+          useValue: jasmine.createSpyObj('PcToastrService', ['notify']),
+        },
+        {
+          provide: ApplePayService,
+          useValue: jasmine.createSpyObj('ApplePayService', ['putToken']),
+        },
+      ],
+    });
+
+    service = TestBed.inject(ApplePaySessionBuilderService);
+    applePayApi = TestBed.inject(
+      ApplePayApi,
+    ) as jasmine.SpyObj<ApplePayApi>;
+    toastr = TestBed.inject(
+      PcToastrService,
+    ) as jasmine.SpyObj<PcToastrService>;
+    applePayService = TestBed.inject(
+      ApplePayService,
+    ) as jasmine.SpyObj<ApplePayService>;
+  });
+
+  it('should create the session builder without errors', () => {
+    const result = service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: {} as any,
+    });
+
+    expect(result).toBeDefined();
+  });
+
+  it('should call merchantVerification on validation handler success', async () => {
+    applePayApi.merchantVerification.and.returnValue(
+      of({
+        display_name: 'Test Merchant',
+        domain_name: 'example.com',
+        epoch_timestamp: 1,
+        expires_at: 2,
+        merchant_identifier: 'merchant.id',
+        merchant_session_identifier: 'session.id',
+        nonce: 'nonce',
+        operational_analytics_identifier: 'op.id',
+        psp_id: 'psp',
+        retries: 0,
+        signature: 'signature',
+      }),
+    );
+
+    const sessionBuilderSpy =
+      BuilderModule.ApplePaySessionBuilder as jasmine.Spy;
+
+    service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: {} as any,
+    });
+
+    const validationHandler =
+      sessionBuilderSpy.calls.mostRecent().returnValue
+        .withValidationMerchantEventHandler.calls.mostRecent().args[0];
+
+    const result = await validationHandler({} as any);
+
+    expect(result.merchantIdentifier).toBe('merchant.id');
+    expect(toastr.notify).not.toHaveBeenCalled();
+  });
+
+  it('should notify technical error when merchant verification fails', async () => {
+    applePayApi.merchantVerification.and.returnValue(
+      throwError(() => new Error('error')),
+    );
+
+    const sessionBuilderSpy =
+      BuilderModule.ApplePaySessionBuilder as jasmine.Spy;
+
+    service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: {} as any,
+    });
+
+    const validationHandler =
+      sessionBuilderSpy.calls.mostRecent().returnValue
+        .withValidationMerchantEventHandler.calls.mostRecent().args[0];
+
+    const result = await validationHandler({} as any);
+
+    expect(result).toBeUndefined();
+    expect(toastr.notify).toHaveBeenCalledWith(
+      '_SHARED.ERRORS.TECHNICAL_PROBLEM',
+    );
+  });
+
+  it('should forward token to ApplePayService on payment authorization', async () => {
+    const sessionBuilderSpy =
+      BuilderModule.ApplePaySessionBuilder as jasmine.Spy;
+
+    service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: {} as any,
+    });
+
+    const paymentHandler =
+      sessionBuilderSpy.calls.mostRecent().returnValue
+        .withPaymentAuthorizedEventHandler.calls.mostRecent().args[0];
+
+    await paymentHandler('token-123');
+
+    expect(applePayService.putToken).toHaveBeenCalledWith('token-123');
+  });
+
+  it('should wire cancel handler when provided', () => {
+    const onCancel = jasmine.createSpy('onCancel');
+
+    const sessionBuilderSpy =
+      BuilderModule.ApplePaySessionBuilder as jasmine.Spy;
+
+    service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: {} as any,
+      onCancel,
+    });
+
+    const cancelHandler =
+      sessionBuilderSpy.calls.mostRecent().returnValue
+        .withCancelEventHandler.calls.mostRecent().args[0];
