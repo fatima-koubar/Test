@@ -39,3 +39,36 @@ describe('ApplePayLiveAdapter', () => {
     expect(mockSession.begin).toHaveBeenCalledTimes(1);
   });
 });
+
+
+
+import { ApplePayLiveAdapter } from './apple-pay-live-adapter';
+
+describe('ApplePayLiveAdapter', () => {
+  let adapter: ApplePayLiveAdapter;
+
+  beforeEach(() => {
+    adapter = new ApplePayLiveAdapter();
+  });
+
+  it('should set the session', () => {
+    const mockSession = { begin: () => {} };
+
+    adapter.setSession(mockSession);
+
+    expect(adapter.session).toBe(mockSession);
+  });
+
+  it('should call begin on the session when starting a transaction', () => {
+    const mockSession = {
+      begin: jasmine.createSpy('begin'),
+    };
+
+    adapter.setSession(mockSession);
+    adapter.startTransaction();
+
+    expect(mockSession.begin).toHaveBeenCalled();
+    expect(mockSession.begin).toHaveBeenCalledTimes(1);
+  });
+});
+
