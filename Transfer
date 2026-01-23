@@ -55,3 +55,117 @@ export class ApplePayFlowService {
     this._applePayAdapter.startTransaction();
   }
 }
+
+
+
+
+
+
+
+import { TestBed } from '@angular/core/testing';
+import { ViewContainerRef, signal } from '@angular/core';
+
+import { ApplePayFlowService } from './apple-pay-flow.service';
+import { ApplePayService } from './apple-pay.service';
+import { ApplePaySessionBuilderService } from '../adapters/implementations/live/apple-pay-session-builder.service';
+import { APPLE_PAY_ADAPTER } from '../injection-tokens/apple-pay-adapters.injection-token';
+import { ApplePaySessionPayload } from '../models/apple-pay-session-payload.model';
+import { TestCard } from '../../card/models/test-card';
+
+describe('ApplePayFlowService', () => {
+  let service: ApplePayFlowService;
+
+  let applePayServiceSpy: jasmine.SpyObj<ApplePayService>;
+  let sessionBuilderSpy: jasmine.SpyObj<ApplePaySessionBuilderService>;
+  let applePayAdapterSpy: jasmine.SpyObj<any>;
+
+  const mockPayload = {} as ApplePaySessionPayload;
+  const mockTestCards: TestCard[] = [{ id: '1' } as TestCard];
+
+  beforeEach(() => {
+    applePayServiceSpy = jasmine.createSpyObj('ApplePayService', [
+      'getCollectionSessionData',
+    ]);
+
+    sessionBuilderSpy = jasmine.createSpyObj(
+      'ApplePaySessionBuilderService',
+      ['createSession']
+    );
+
+    applePayAdapterSpy = jasmine.createSpyObj('ApplePayAdapter', [
+      'setSession',
+      'startTransaction',
+    ]);
+
+    TestBed.configureTestingModule({
+      providers: [
+        ApplePayFlowService,
+        { provide: ApplePayService, useValue: applePayServiceSpy },
+        {
+          provide: ApplePaySessionBuilderService,
+          useValue: sessionBuilderSpy,
+        },
+        { provide: APPLE_PAY_ADAPTER, useValue: applePayAdapterSpy },
+      ],
+    });
+
+    service = TestBed.inject(ApplePayFlowService);
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+
+  describe('init()', () => {
+    it('should load session data and update internal state', async () => {
+      applePayServiceSpy.getCollectionSessionData.and.resolveTo({
+        brandList: ['visa', 'mastercard'],
+        testCards: mockTestCards,
+        countryCode: 'US',
+        merchantName: 'Test Merchant',
+        amount: '10.00',
+        payload: mockPayload,
+      });
+
+      await service.init();
+
+      expect(applePayServiceSpy.getCollectionSessionData).toHaveBeenCalled();
+      expect(service.testCards()).toEqual(mockTestCards);
+    });
+  });
+
+  describe('startTransaction()', () => {
+    it('should create session and start Apple Pay transaction', () => {
+      const mockContainer = {} as ViewContainerRef;
+      const mockSession = { sessionId: 'abc' };
+      const onCloseSpy = jasmine.createSpy('onClose');
+
+      service.setContainer(mockContainer);
+      service.setCloseEvent(onCloseSpy);
+
+      // Manually set private state via init flow
+      (service as any).brandList = ['visa'];
+      (service as any).countryCode = 'US';
+      (service as any).merchantName = 'Test Merchant';
+      (service as any).amount = '10.00';
+      (service as any).payload = mockPayload;
+
+      sessionBuilderSpy.createSession.and.returnValue(mockSession);
+
+      service.startTransaction();
+
+      expect(sessionBuilderSpy.createSession).toHaveBeenCalledWith({
+        countryCode: 'US',
+        brandList: ['visa'],
+        merchantName: 'Test Merchant',
+        amount: '10.00',
+        payload: mockPayload,
+        container: mockContainer,
+        onCancel: onCloseSpy,
+      });
+
+      expect(applePayAdapterSpy.setSession).toHaveBeenCalledWith(mockSession);
+      expect(applePayAdapterSpy.startTransaction).toHaveBeenCalled();
+    });
+  });
+});
