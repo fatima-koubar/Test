@@ -1,74 +1,71 @@
-import { ApplePayAdapterService } from '../../apple-pay-adapter.service';
+import { inject, Injectable, ViewContainerRef } from '@angular/core';
+import { ApplePayRequestBuilder } from './builders/apple-pay-request.builder';
+import { ApplePayApi } from '../../../api/apple-pay.api';
+import { firstValueFrom } from 'rxjs';
+import { PcToastrService } from '../../../../core';
+import { ApplePaySessionBuilder } from './builders/apple-pay-session.builder';
+import { MerchantSession } from '../../../models/merchant-session.model';
+import { ApplePaySessionPayload } from '../../../models/apple-pay-session-payload.model';
+import { ApplePayService } from '../../../services/apple-pay.service';
 
-export class ApplePayLiveAdapter extends ApplePayAdapterService {
-  session: any;
+@Injectable({
+  providedIn: 'root',
+})
+export class ApplePaySessionBuilderService {
+  private readonly _applePayApi = inject(ApplePayApi);
+  private readonly _toastrService = inject(PcToastrService);
+  private readonly _applePayService = inject(ApplePayService);
 
-  setSession(session: any): void {
-    this.session = session;
-  }
+  createSession(params: {
+    countryCode: string;
+    brandList: string[];
+    merchantName: string;
+    amount: string;
+    payload: ApplePaySessionPayload;
+    container: ViewContainerRef;
+    onCancel?: () => void;
+  }) {
+    const request = new ApplePayRequestBuilder()
+      .setCountryCode(params.countryCode)
+      .setCurrencyCode('EUR')
+      .setMerchantCapabilities(['supports3DS'])
+      .setSupportedNetworks(params.brandList)
+      .setTotal({
+        label: params.merchantName,
+        type: 'final',
+        amount: params.amount,
+      })
+      .build();
 
-  startTransaction(): void {
-    this.session.begin();
+    return new ApplePaySessionBuilder(request, params.payload)
+      .withValidationMerchantEventHandler(async (validationRequest) => {
+        try {
+          const data = await firstValueFrom(
+            this._applePayApi.merchantVerification(validationRequest),
+          );
+
+          return {
+            displayName: data.display_name,
+            domainName: data.domain_name,
+            epochTimestamp: data.epoch_timestamp,
+            expiresAt: data.expires_at,
+            merchantIdentifier: data.merchant_identifier,
+            merchantSessionIdentifier: data.merchant_session_identifier,
+            nonce: data.nonce,
+            operationalAnalyticsIdentifier: data.operational_analytics_identifier,
+            pspId: data.psp_id,
+            retries: data.retries,
+            signature: data.signature,
+          } as MerchantSession;
+        } catch {
+          this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
+          return;
+        }
+      })
+      .withPaymentAuthorizedEventHandler(async (token: string) => {
+        this._applePayService.putToken(token);
+      })
+      .withCancelEventHandler(params.onCancel)
+      .build();
   }
 }
-import { ApplePayLiveAdapter } from './apple-pay-live-adapter';
-
-describe('ApplePayLiveAdapter', () => {
-  let adapter: ApplePayLiveAdapter;
-
-  beforeEach(() => {
-    adapter = new ApplePayLiveAdapter();
-  });
-
-  it('should set the session', () => {
-    const mockSession = { begin: jest.fn() };
-
-    adapter.setSession(mockSession);
-
-    expect(adapter.session).toBe(mockSession);
-  });
-
-  it('should start a transaction by calling session.begin()', () => {
-    const mockSession = {
-      begin: jest.fn(),
-    };
-
-    adapter.setSession(mockSession);
-    adapter.startTransaction();
-
-    expect(mockSession.begin).toHaveBeenCalledTimes(1);
-  });
-});
-
-
-
-import { ApplePayLiveAdapter } from './apple-pay-live-adapter';
-
-describe('ApplePayLiveAdapter', () => {
-  let adapter: ApplePayLiveAdapter;
-
-  beforeEach(() => {
-    adapter = new ApplePayLiveAdapter();
-  });
-
-  it('should set the session', () => {
-    const mockSession = { begin: () => {} };
-
-    adapter.setSession(mockSession);
-
-    expect(adapter.session).toBe(mockSession);
-  });
-
-  it('should call begin on the session when starting a transaction', () => {
-    const mockSession = {
-      begin: jasmine.createSpy('begin'),
-    };
-
-    adapter.setSession(mockSession);
-    adapter.startTransaction();
-
-    expect(mockSession.begin).toHaveBeenCalled();
-    expect(mockSession.begin).toHaveBeenCalledTimes(1);
-  });
-});
-
