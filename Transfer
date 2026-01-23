@@ -1,1 +1,13 @@
+beforeAll(() => {
+  (window as any).ApplePaySession = jasmine.createSpy('ApplePaySession')
+    .and.callFake(() => ({
+      begin: jasmine.createSpy('begin'),
+      abort: jasmine.createSpy('abort'),
+      completeMerchantValidation: jasmine.createSpy('completeMerchantValidation'),
+      completePayment: jasmine.createSpy('completePayment'),
+      onvalidatemerchant: null,
+      onpaymentauthorized: null,
+      oncancel: null,
+    }));
+});
 
