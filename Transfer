@@ -1,1 +1,94 @@
+template file:
+<div class="mp_acc_paymtmean_panel ei_relative applepay_container">
+  <div class="ei_flex ei_flex_justcenter">
+    @if (canApplePayPayment()) {
+      <pc-apple-pay-button (handleClick)="handleClick()" class="mt-4"></pc-apple-pay-button>
+    } @else {
+      <button class="pay-button mp_btn mp_btn_pay cpc ei_flex_justcenter" (click)="handleClick()">
+        <span
+          translate
+          [translateParams]="{
+            amount: amount() | amount
+          }"
+        >
+          _SHARED.ACTIONS.PAY
+        </span>
+      </button>
+    }
+  </div>
+</div>
+@if (showCustomOverlay()) {
+  <div id="pc-overlay"></div>
+}
+
+apple-pay.component.ts
+
+const MODAL_PAGE_OVERLAY_SELECTOR = 'div.modal.modal-crossfade.modal-page-overlay.modal-open';
+const APPLEPAY_MODAL_SELECTOR = 'apple-pay-modal';
+const APPLE_PAY_POPIN = '/apple-pay/popin';
+
+@Component({
+  selector: 'pc-apple-pay',
+  templateUrl: './apple-pay.component.html',
+  imports: [AmountPipe, ApplePayButtonComponent, TranslateDirective],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  standalone: true,
+})
+export class ApplePayComponent implements OnInit {
+  paymentMeanHref: InputSignal<string> = input.required<string>();
+  amount: InputSignal<Amount> = input.required<Amount>();
+  submitEvent: OutputEmitterRef<PaymentMeanType> = output<PaymentMeanType>();
+  showCustomOverlay: WritableSignal<boolean> = signal<boolean>(false);
+  canApplePayPayment: Signal<boolean> = computed(() =>
+    this._applePayAdapterService.canApplePayPayment(),
+  );
+
+  private readonly _spinnerService = inject(SpinnerService);
+  private readonly _applePayAdapterService = inject(ApplePayAdapterService);
+  private readonly _document = inject(DOCUMENT);
+  private readonly _integrationType = inject(PAYMENT_SESSION_CONTEXT);
+  private readonly _paymentSessionStore = inject(PaymentSessionStore);
+  private readonly _applePayService = inject(ApplePayService);
+  private readonly _applePayFlowService = inject(ApplePayFlowService);
+
+  async ngOnInit(): Promise<void> {
+    this._applePayService.setCollectionSessionHref(this.paymentMeanHref());
+    await this._applePayFlowService.init();
+    this._applePayFlowService.setCloseEvent(() => {
+      this.showCustomOverlay.set(false);
+    });
+
+    this._applePayService.setErrorEvent(() => {
+      this._spinnerService.removeComponent();
+      this.createSession();
+    });
+
+    this._applePayService.setSubmitEvent(() => {
+      this.submitEvent.emit(PAYMENT_MEAN_TYPES.APPLEPAY);
+    });
+  }
+
+  handleClick(): void {
+    if (this._integrationType == INTEGRATION_TYPES.PAYMENT_COMPONENT) {
+      window.parent.postMessage(
+        { action: 'create', url: window.location.href + APPLE_PAY_POPIN },
+        '*',
+      );
+    } else {
+      this.createSession();
+      const overlay = this._document
+        .querySelector(APPLEPAY_MODAL_SELECTOR)
+        ?.shadowRoot?.querySelector(MODAL_PAGE_OVERLAY_SELECTOR) as HTMLElement;
+      overlay?.style.setProperty('background', 'rgb(0 0 0 / 0%)');
+    }
+  }
+
+  private createSession(): void {
+    if (!this._paymentSessionStore.sandbox()) {
+      this.showCustomOverlay.set(true);
+    }
+    this._applePayFlowService.startTransaction();
+  }
+}
+
 
