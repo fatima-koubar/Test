@@ -11,3 +11,31 @@ export class ApplePayLiveAdapter extends ApplePayAdapterService {
     this.session.begin();
   }
 }
+import { ApplePayLiveAdapter } from './apple-pay-live-adapter';
+
+describe('ApplePayLiveAdapter', () => {
+  let adapter: ApplePayLiveAdapter;
+
+  beforeEach(() => {
+    adapter = new ApplePayLiveAdapter();
+  });
+
+  it('should set the session', () => {
+    const mockSession = { begin: jest.fn() };
+
+    adapter.setSession(mockSession);
+
+    expect(adapter.session).toBe(mockSession);
+  });
+
+  it('should start a transaction by calling session.begin()', () => {
+    const mockSession = {
+      begin: jest.fn(),
+    };
+
+    adapter.setSession(mockSession);
+    adapter.startTransaction();
+
+    expect(mockSession.begin).toHaveBeenCalledTimes(1);
+  });
+});
