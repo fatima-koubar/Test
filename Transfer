@@ -1,68 +1,117 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { signal } from '@angular/core';
-import { ApplePayButtonComponent } from './apple-pay-button.component';
-import { ApplePayAdapterService } from '../services/apple-pay-adapter.service';
+apple-pay-session.builder.ts
+import { ApplePaySessionPayload } from '../../../../models/apple-pay-session-payload.model';
+import { MerchantSession } from '../../../../models/merchant-session.model';
+import { MerchantValidationRequest } from '../../../../models/merchant-validation-request.model';
+import { ApplePayPaymentRequest } from './apple-pay-request.builder';
 
-describe('ApplePayButtonComponent', () => {
-  let component: ApplePayButtonComponent;
-  let fixture: ComponentFixture<ApplePayButtonComponent>;
-  let applePayAdapterServiceSpy: jasmine.SpyObj<ApplePayAdapterService>;
+export class ApplePaySessionBuilder {
+  private session: any;
+  private applePaySessionPayload: ApplePaySessionPayload;
 
-  beforeEach(async () => {
-    applePayAdapterServiceSpy = jasmine.createSpyObj<ApplePayAdapterService>(
-      'ApplePayAdapterService',
-      ['canApplePayPayment']
-    );
+  constructor(request: ApplePayPaymentRequest, applePaySessionPayload: ApplePaySessionPayload) {
+    this.session = new (window as any).ApplePaySession(3, request);
+    this.applePaySessionPayload = applePaySessionPayload;
+  }
 
-    await TestBed.configureTestingModule({
-      imports: [ApplePayButtonComponent],
-      providers: [
-        { provide: ApplePayAdapterService, useValue: applePayAdapterServiceSpy },
-      ],
-    }).compileComponents();
+  public withValidationMerchantEventHandler(
+    callback: (merchantValidationRequest: MerchantValidationRequest) => Promise<any>,
+  ) {
+    this.session.onvalidatemerchant = async (event: any) => {
+      try {
+        let merchantValidationRequest: MerchantValidationRequest = {
+          merchant_identifier: this.applePaySessionPayload.merchant_identifier,
+          initiative_context: this.applePaySessionPayload.domain ?? window.location.hostname,
+          validation_url: event.validationURL,
+          display_name: this.applePaySessionPayload.merchant_name,
+          collection_session_id: this.applePaySessionPayload.collection_session_id,
+        };
 
-    fixture = TestBed.createComponent(ApplePayButtonComponent);
-    component = fixture.componentInstance;
-  });
+        const validationData: MerchantSession = await callback(merchantValidationRequest);
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
+        this.session.completeMerchantValidation(validationData);
+      } catch (error) {
+        throw new Error((error as Error).message);
+      }
+    };
 
-  it('should expose isApplePaySupported as true when Apple Pay is supported', () => {
-    applePayAdapterServiceSpy.canApplePayPayment.and.returnValue(true);
+    return this;
+  }
+  public withCancelEventHandler(callback: (() => void) | undefined): ApplePaySessionBuilder {
+    if (callback) this.session.oncancel = callback;
+    return this;
+  }
+  public withPaymentAuthorizedEventHandler(callback: (token: string) => Promise<any>) {
+    this.session.onpaymentauthorized = async (event: any) => {
+      const result = {
+        status: (window as any).ApplePaySession.STATUS_SUCCESS,
+      };
 
-    // Trigger change detection so computed signal evaluates
-    fixture.detectChanges();
+      event.payment.token.paymentMethod.network =
+        event.payment.token.paymentMethod.network.toLowerCase();
 
-    expect(component.isApplePaySupported()).toBeTrue();
-    expect(applePayAdapterServiceSpy.canApplePayPayment).toHaveBeenCalled();
-  });
+      this.session.completePayment(result);
 
-  it('should expose isApplePaySupported as false when Apple Pay is not supported', () => {
-    applePayAdapterServiceSpy.canApplePayPayment.and.returnValue(false);
+      callback(btoa(JSON.stringify(event.payment.token)));
+    };
 
-    fixture.detectChanges();
+    return this;
+  }
 
-    expect(component.isApplePaySupported()).toBeFalse();
-  });
+  public build() {
+    return this.session;
+  }
+}
 
-  it('should emit handleClick when onClick is called', () => {
-    const emitSpy = spyOn(component.handleClick, 'emit');
+apple-pay-request.builder.ts
+export class ApplePayRequestBuilder {
+    private countryCode!: string;
+    private currencyCode!: string;
+    private merchantCapabilities!: string[];
+    private supportedNetworks!: string[];
+    private total!: { label: string, type: string, amount: string };
 
-    component.onClick();
+    public setCountryCode(countryCode: string): ApplePayRequestBuilder {
+        this.countryCode = countryCode;
+        return this;
+    }
 
-    expect(emitSpy).toHaveBeenCalled();
-  });
+    public setCurrencyCode(currencyCode: string): ApplePayRequestBuilder {
+        this.currencyCode = currencyCode;
+        return this;
+    }
 
-  it('should emit handleClick when the div is clicked', () => {
-    const emitSpy = spyOn(component.handleClick, 'emit');
+    public setMerchantCapabilities(merchantCapabilities: string[]): ApplePayRequestBuilder {
+        this.merchantCapabilities = merchantCapabilities;
+        return this;
+    }
 
-    fixture.detectChanges();
+    public setSupportedNetworks(supportedNetworks: string[]): ApplePayRequestBuilder {
+        this.supportedNetworks = supportedNetworks;
+        return this;
+    }
 
-    const div: HTMLElement = fixture.nativeElement.querySelector('div');
-    div.dispatchEvent(new Event('click'));
+    public setTotal(total: { label: string, type: string, amount: string }): ApplePayRequestBuilder {
+        this.total = total;
+        return this;
+    }
 
-    expect(emitSpy).toHaveBeenCalled();
-  });
-});
+    public build(): ApplePayPaymentRequest {
+        return new ApplePayPaymentRequest(
+            this.countryCode,
+            this.currencyCode,
+            this.merchantCapabilities,
+            this.supportedNetworks,
+            this.total
+        );
+    }
+}
+
+export class ApplePayPaymentRequest {
+    constructor(
+        public countryCode: string,
+        public currencyCode: string,
+        public merchantCapabilities: string[],
+        public supportedNetworks: string[],
+        public total: { label: string, type: string, amount: string }
+    ) {}
+}
