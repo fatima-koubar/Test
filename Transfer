@@ -56,3 +56,111 @@ export class ApplePayApi {
       );
   }
 }
+
+
+
+
+import { TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
+
+import { ApplePayApi } from './apple-pay.api';
+import { ApiCallerService, ApiUrlService } from '../../core';
+import { ApplePayDTO } from './dtos/apple-pay.dto';
+import { MerchantVerificationDTO } from './dtos/merchant-verification.dto';
+import { MerchantValidationRequest } from '../models/merchant-validation-request.model';
+
+import * as validators from './validators';
+
+describe('ApplePayApi', () => {
+  let service: ApplePayApi;
+  let apiCallerService: jasmine.SpyObj<ApiCallerService>;
+  let apiUrlService: jasmine.SpyObj<ApiUrlService>;
+
+  beforeEach(() => {
+    apiCallerService = jasmine.createSpyObj<ApiCallerService>('ApiCallerService', [
+      'get',
+      'put',
+      'post',
+    ]);
+
+    apiUrlService = jasmine.createSpyObj<ApiUrlService>('ApiUrlService', ['apiUrl']);
+    apiUrlService.apiUrl.and.returnValue('https://api.example.com');
+
+    TestBed.configureTestingModule({
+      providers: [
+        ApplePayApi,
+        { provide: ApiCallerService, useValue: apiCallerService },
+        { provide: ApiUrlService, useValue: apiUrlService },
+      ],
+    });
+
+    service = TestBed.inject(ApplePayApi);
+  });
+
+  describe('setCollectionSessionHref', () => {
+    it('should update the session endpoint', () => {
+      service.setCollectionSessionHref('/session/123');
+
+      apiCallerService.get.and.returnValue(of({} as ApplePayDTO));
+
+      service.getCollectionSessionData().subscribe();
+
+      expect(apiCallerService.get).toHaveBeenCalledWith(
+        'https://api.example.com/session/123',
+      );
+    });
+  });
+
+  describe('getCollectionSessionData', () => {
+    it('should call GET and validate the ApplePayDTO', () => {
+      const dto = {} as ApplePayDTO;
+      spyOn(validators, 'validateApplePayDTO');
+
+      service.setCollectionSessionHref('/session/abc');
+      apiCallerService.get.and.returnValue(of(dto));
+
+      service.getCollectionSessionData().subscribe((result) => {
+        expect(result).toBe(dto);
+      });
+
+      expect(apiCallerService.get).toHaveBeenCalled();
+      expect(validators.validateApplePayDTO).toHaveBeenCalledWith(dto);
+    });
+  });
+
+  describe('putToken', () => {
+    it('should PUT token to the correct endpoint', () => {
+      service.setCollectionSessionHref('/session/xyz');
+      apiCallerService.put.and.returnValue(of(null));
+
+      service.putToken('test-token').subscribe();
+
+      expect(apiCallerService.put).toHaveBeenCalledWith(
+        'https://api.example.com/session/xyz/token',
+        { token: 'test-token' },
+      );
+    });
+  });
+
+  describe('merchantVerification', () => {
+    it('should POST merchant verification request and validate response', () => {
+      const request = {} as MerchantValidationRequest;
+      const response = {} as MerchantVerificationDTO;
+
+      spyOn(validators, 'validateMerchantVerificationDTO');
+      apiCallerService.post.and.returnValue(of(response));
+
+      service.merchantVerification(request).subscribe((result) => {
+        expect(result).toBe(response);
+      });
+
+      expect(apiCallerService.post).toHaveBeenCalledWith(
+        `https://${window.location.hostname}/applepay/merchantverification`,
+        JSON.stringify(request),
+      );
+
+      expect(validators.validateMerchantVerificationDTO).toHaveBeenCalledWith(response);
+    });
+  });
+});
+
