@@ -1,3 +1,119 @@
+    applePayApi.merchantVerification.and.returnValue(
+      of({
+        display_name: 'Test Merchant',
+        domain_name: 'example.com',
+        epoch_timestamp: 1,
+        expires_at: 2,
+        merchant_identifier: 'merchant.id',
+        merchant_session_identifier: 'session.id',
+        nonce: 'nonce',
+        operational_analytics_identifier: 'op.id',
+        psp_id: 'psp',
+        retries: 0,
+        signature: 'signature',
+      }),
+    );
+
+    const sessionBuilderSpy =
+      BuilderModule.ApplePaySessionBuilder as jasmine.Spy;
+
+    service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: {} as any,
+    });
+
+    const validationHandler =
+      sessionBuilderSpy.calls.mostRecent().returnValue
+        .withValidationMerchantEventHandler.calls.mostRecent().args[0];
+
+    const result = await validationHandler({} as any);
+
+    expect(result.merchantIdentifier).toBe('merchant.id');
+    expect(toastr.notify).not.toHaveBeenCalled();
+  });
+
+  it('should notify technical error when merchant verification fails', async () => {
+    applePayApi.merchantVerification.and.returnValue(
+      throwError(() => new Error('error')),
+    );
+
+    const sessionBuilderSpy =
+      BuilderModule.ApplePaySessionBuilder as jasmine.Spy;
+
+    service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: {} as any,
+    });
+
+    const validationHandler =
+      sessionBuilderSpy.calls.mostRecent().returnValue
+        .withValidationMerchantEventHandler.calls.mostRecent().args[0];
+
+    const result = await validationHandler({} as any);
+
+    expect(result).toBeUndefined();
+    expect(toastr.notify).toHaveBeenCalledWith(
+      '_SHARED.ERRORS.TECHNICAL_PROBLEM',
+    );
+  });
+
+  it('should forward token to ApplePayService on payment authorization', async () => {
+    const sessionBuilderSpy =
+      BuilderModule.ApplePaySessionBuilder as jasmine.Spy;
+
+    service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: {} as any,
+    });
+
+    const paymentHandler =
+      sessionBuilderSpy.calls.mostRecent().returnValue
+        .withPaymentAuthorizedEventHandler.calls.mostRecent().args[0];
+
+    await paymentHandler('token-123');
+
+    expect(applePayService.putToken).toHaveBeenCalledWith('token-123');
+  });
+
+  it('should wire cancel handler when provided', () => {
+    const onCancel = jasmine.createSpy('onCancel');
+
+    const sessionBuilderSpy =
+      BuilderModule.ApplePaySessionBuilder as jasmine.Spy;
+
+    service.createSession({
+      countryCode: 'DE',
+      brandList: ['visa'],
+      merchantName: 'Test Merchant',
+      amount: '10.00',
+      payload: {} as any,
+      container: {} as any,
+      onCancel,
+    });
+
+    const cancelHandler =
+      sessionBuilderSpy.calls.mostRecent().returnValue
+        .withCancelEventHandler.calls.mostRecent().args[0];
+
+
+
+
+
+
+
+
 import { TestBed } from '@angular/core/testing';
 import { ApplePaySessionBuilderService } from './apple-pay-session-builder.service';
 import { ApplePayApi } from '../../../api/apple-pay.api';
@@ -194,3 +310,10 @@ describe('ApplePaySessionBuilderService', () => {
     const cancelHandler =
       sessionBuilderSpy.calls.mostRecent().returnValue
         .withCancelEventHandler.calls.mostRecent().args[0];
+
+    cancelHandler();
+
+    expect(onCancel).toHaveBeenCalled();
+  });
+});
+
