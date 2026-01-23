@@ -1,192 +1,57 @@
-import { inject, Injectable } from '@angular/core';
-import { HateoasPaymentMeanApplePay, PAYMENT_MEAN_TYPES, WINDOW } from '../../../public-api';
-import { RessourceLoaderService } from '../../core/services/ressource-loader.service';
-import { PaymentSessionDTO } from '../../router/api/dtos/payment-session.dto';
+import { inject, Injectable, signal, ViewContainerRef } from '@angular/core';
+import { TestCard } from '../../card/models/test-card';
+import { ApplePaySessionPayload } from '../models/apple-pay-session-payload.model';
+import { APPLE_PAY_ADAPTER } from '../injection-tokens/apple-pay-adapters.injection-token';
+import { ApplePaySessionBuilderService } from '../adapters/implementations/live/apple-pay-session-builder.service';
+import { ApplePayService } from './apple-pay.service';
 
-@Injectable({
-  providedIn: 'root',
-})
-export abstract class ApplePayAdapterService {
-  private readonly APPLE_PAY_SDK_URL =
-    'https://applepay.cdn-apple.com/jsapi/v1.3.2/apple-pay-sdk.js';
-  private readonly INTEGRITY_HASH =
-    'sha384-DZRWMZLyVXr+7shJfal8pIG2v4KisLoSWFjZQMUv0+GWaCwoa82qeHsWrbBIUDPU';
+@Injectable({ providedIn: 'root' })
+export class ApplePayFlowService {
+  testCards = signal<TestCard[]>([]);
 
-  private readonly _window = inject(WINDOW);
-  private readonly _ressourceLoader = inject(RessourceLoaderService);
+  private brandList: string[] = [];
+  private countryCode = '';
+  private merchantName = '';
+  private amount = '';
+  private payload!: ApplePaySessionPayload;
+  private container!: ViewContainerRef;
+  private onClose?: () => void;
 
-  public abstract setSession(session: any): void;
-  public abstract startTransaction(): void;
+  private readonly _applePayService = inject(ApplePayService);
+  private readonly _applePaySessionBuilderService = inject(ApplePaySessionBuilderService);
+  private readonly _applePayAdapter = inject(APPLE_PAY_ADAPTER);
 
-  async applePayLoadScript(rawData: PaymentSessionDTO): Promise<void> {
-    const applePayPaymentMean = rawData._links.payment_means?.filter(
-      (pm: any) => pm.type === PAYMENT_MEAN_TYPES.APPLEPAY,
-    );
-    if (applePayPaymentMean && applePayPaymentMean.length > 0) {
-      this.loadScript();
-      if (!rawData.sandbox && (window as any).ApplePaySession) {
-        const merchantIdentifier = (applePayPaymentMean[0] as HateoasPaymentMeanApplePay)
-          .merchantIdentifier;
-        const ApplePaySession = (window as any).ApplePaySession;
-        const capabilities = await ApplePaySession.applePayCapabilities(merchantIdentifier);
-        switch (capabilities.paymentCredentialStatus) {
-          case 'applePayUnsupported':
-            rawData._links.payment_means = rawData._links.payment_means?.filter(
-              (pm: any) => pm.type !== PAYMENT_MEAN_TYPES.APPLEPAY,
-            );
-        }
-      }
-    }
+  setContainer(container: ViewContainerRef): void {
+    this.container = container;
   }
 
-  canApplePayPayment(): boolean {
-    return (
-      Boolean(this._ressourceLoader.getLoadedResource(this.APPLE_PAY_SDK_URL)) &&
-      (this._window as any).ApplePaySession.canMakePayments()
-    );
+  setCloseEvent(callback: () => void): void {
+    this.onClose = callback;
   }
 
-  loadScript(): void {
-    try {
-      this._ressourceLoader.loadScript(this.APPLE_PAY_SDK_URL, {
-        integrity: this.INTEGRITY_HASH,
-        crossOrigin: 'anonymous',
-      });
-    } catch (error) {
-      throw new Error((error as Error).message);
-    }
+  async init(): Promise<void> {
+    const data = await this._applePayService.getCollectionSessionData();
+
+    this.brandList = data.brandList;
+    this.testCards.set(data.testCards);
+    this.countryCode = data.countryCode;
+    this.merchantName = data.merchantName;
+    this.amount = data.amount;
+    this.payload = data.payload;
+  }
+
+  startTransaction(): void {
+    const session = this._applePaySessionBuilderService.createSession({
+      countryCode: this.countryCode,
+      brandList: this.brandList,
+      merchantName: this.merchantName,
+      amount: this.amount,
+      payload: this.payload,
+      container: this.container,
+      onCancel: this.onClose,
+    });
+
+    this._applePayAdapter.setSession(session);
+    this._applePayAdapter.startTransaction();
   }
 }
-
-
-import { TestBed } from '@angular/core/testing';
-import { ApplePayAdapterService } from './apple-pay-adapter.service';
-import { RessourceLoaderService } from '../../core/services/ressource-loader.service';
-import { PAYMENT_MEAN_TYPES, WINDOW } from '../../../public-api';
-import { PaymentSessionDTO } from '../../router/api/dtos/payment-session.dto';
-
-/**
- * Concrete test implementation of the abstract service
- */
-class TestApplePayAdapterService extends ApplePayAdapterService {
-  setSession(): void {}
-  startTransaction(): void {}
-}
-
-describe('ApplePayAdapterService', () => {
-  let service: TestApplePayAdapterService;
-  let ressourceLoader: jasmine.SpyObj<RessourceLoaderService>;
-  let mockWindow: any;
-
-  beforeEach(() => {
-    ressourceLoader = jasmine.createSpyObj('RessourceLoaderService', [
-      'loadScript',
-      'getLoadedResource',
-    ]);
-
-    mockWindow = {
-      ApplePaySession: {
-        canMakePayments: jasmine.createSpy().and.returnValue(true),
-        applePayCapabilities: jasmine
-          .createSpy()
-          .and.resolveTo({ paymentCredentialStatus: 'applePaySupported' }),
-      },
-    };
-
-    TestBed.configureTestingModule({
-      providers: [
-        TestApplePayAdapterService,
-        { provide: RessourceLoaderService, useValue: ressourceLoader },
-        { provide: WINDOW, useValue: mockWindow },
-      ],
-    });
-
-    service = TestBed.inject(TestApplePayAdapterService);
-  });
-
-  describe('loadScript', () => {
-    it('should load the Apple Pay SDK script', () => {
-      service.loadScript();
-
-      expect(ressourceLoader.loadScript).toHaveBeenCalledWith(
-        'https://applepay.cdn-apple.com/jsapi/v1.3.2/apple-pay-sdk.js',
-        {
-          integrity:
-            'sha384-DZRWMZLyVXr+7shJfal8pIG2v4KisLoSWFjZQMUv0+GWaCwoa82qeHsWrbBIUDPU',
-          crossOrigin: 'anonymous',
-        },
-      );
-    });
-
-    it('should throw an error if script loading fails', () => {
-      ressourceLoader.loadScript.and.throwError('Load failed');
-
-      expect(() => service.loadScript()).toThrowError('Load failed');
-    });
-  });
-
-  describe('canApplePayPayment', () => {
-    it('should return true when script is loaded and Apple Pay is available', () => {
-      ressourceLoader.getLoadedResource.and.returnValue(true);
-
-      expect(service.canApplePayPayment()).toBeTrue();
-    });
-
-    it('should return false when script is not loaded', () => {
-      ressourceLoader.getLoadedResource.and.returnValue(false);
-
-      expect(service.canApplePayPayment()).toBeFalse();
-    });
-  });
-
-  describe('applePayLoadScript', () => {
-    it('should load script when Apple Pay payment mean exists', async () => {
-      const session = createSession();
-
-      await service.applePayLoadScript(session);
-
-      expect(ressourceLoader.loadScript).toHaveBeenCalled();
-    });
-
-    it('should remove Apple Pay payment mean if unsupported', async () => {
-      mockWindow.ApplePaySession.applePayCapabilities.and.resolveTo({
-        paymentCredentialStatus: 'applePayUnsupported',
-      });
-
-      const session = createSession();
-
-      await service.applePayLoadScript(session);
-
-      expect(
-        session._links.payment_means.some(
-          pm => pm.type === PAYMENT_MEAN_TYPES.APPLEPAY,
-        ),
-      ).toBeFalse();
-    });
-
-    it('should not call ApplePaySession in sandbox mode', async () => {
-      const session = createSession(true);
-
-      await service.applePayLoadScript(session);
-
-      expect(
-        mockWindow.ApplePaySession.applePayCapabilities,
-      ).not.toHaveBeenCalled();
-    });
-  });
-
-  function createSession(sandbox = false): PaymentSessionDTO {
-    return {
-      sandbox,
-      _links: {
-        payment_means: [
-          {
-            type: PAYMENT_MEAN_TYPES.APPLEPAY,
-            merchantIdentifier: 'merchant.test',
-          },
-        ],
-      },
-    } as PaymentSessionDTO;
-  }
-});
-
