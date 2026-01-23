@@ -115,3 +115,27 @@ export class ApplePayPaymentRequest {
         public total: { label: string, type: string, amount: string }
     ) {}
 }
+declare global {
+  interface Window {
+    ApplePaySession: typeof ApplePaySession;
+  }
+
+  class ApplePaySession {
+    static STATUS_SUCCESS: number;
+    static STATUS_FAILURE: number;
+
+    constructor(version: number, request: any);
+
+    onvalidatemerchant: ((event: any) => void) | null;
+    onpaymentauthorized: ((event: any) => void) | null;
+    oncancel: (() => void) | null;
+
+    completeMerchantValidation(data: any): void;
+    completePayment(result: { status: number }): void;
+    abort(): void;
+  }
+}
+
+export {};
+
+
