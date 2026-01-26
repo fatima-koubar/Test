@@ -1,17 +1,24 @@
-I have this error : 
-Error: Cannot override provider when the test module has already been instantiated. Make sure you are not using `inject` before `overrideProvider`.
-
+fichier .spec.ts: 
 describe('ApplePayComponent', () => {
   let component: ApplePayComponent;
   let fixture: ComponentFixture<ApplePayComponent>;
 
+  let applePayAdapterServiceSpy: jasmine.SpyObj<ApplePayAdapterService>;
+  let applePayServiceSpy: jasmine.SpyObj<ApplePayService>;
+  let applePayFlowServiceSpy: jasmine.SpyObj<ApplePayFlowService>;
+  let spinnerServiceSpy: jasmine.SpyObj<SpinnerService>;
+  let paymentSessionStoreSpy: jasmine.SpyObj<InstanceType<typeof PaymentSessionStore>>;
+
   beforeEach(async () => {
-   
+    applePayAdapterServiceSpy = jasmine.createSpyObj<ApplePayAdapterService>(
+      'ApplePayAdapterService',
+      ['canApplePayPayment'],
+    );
+
     TestBed.configureTestingModule({
       imports: [ApplePayComponent],
       providers: [
-        { provide: PAYMENT_SESSION_CONTEXT, useValue: INTEGRATION_TYPES.PAYMENT_PAGE },
-        { provide: DOCUMENT, useValue: document },
+        { provide: ApplePayAdapterService, useValue: applePayAdapterServiceSpy },
         importProvidersFrom([TranslateModule.forRoot()]),
       ],
     }).compileComponents();
@@ -27,22 +34,51 @@ describe('ApplePayComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should post message when integration type is PAYMENT_COMPONENT', () => {
-    spyOn(window.parent, 'postMessage');
-
-    TestBed.overrideProvider(PAYMENT_SESSION_CONTEXT, {
-      useValue: INTEGRATION_TYPES.PAYMENT_COMPONENT,
-    });
-
-    fixture = TestBed.createComponent(ApplePayComponent);
-    component = fixture.componentInstance;
-    fixture.componentRef.setInput('paymentMeanHref', '');
-    fixture.componentRef.setInput('amount', {});
+  it('should show payButton button when Apple Pay is NOT available', () => {
+    applePayAdapterServiceSpy.canApplePayPayment.and.returnValue(false);
 
     fixture.detectChanges();
 
-    component.handleClick();
+    const applePayButton = fixture.nativeElement.querySelector('pc-apple-pay-button');
+    const payButton = fixture.nativeElement.querySelector('button.pay-button');
 
-    expect(window.parent.postMessage).toHaveBeenCalled();
+    expect(applePayButton).toBeFalsy();
+    expect(payButton).toBeTruthy();
   });
+
 });
+
+fichier amountPipe:
+@Pipe({
+  name: 'amount',
+  standalone: true,
+})
+export class AmountPipe implements PipeTransform {
+  _translateService = inject(TranslateService);
+
+  currencyPipe: CurrencyPipe = new CurrencyPipe(this.locale);
+
+  private get locale(): string {
+    const currentLang = this._translateService.getCurrentLang();
+    const fallbackLang = this._translateService.getFallbackLang();
+
+    if (Object.values(LANGUAGES).includes(currentLang as LanguageKey)) {
+      return currentLang;
+    }
+
+    return typeof fallbackLang === 'string' ? currentLang || fallbackLang : currentLang;
+  }
+
+  transform(amount: Amount): string {
+    let value = amount.value;
+    if (amount.exponent) {
+      value = value * Math.pow(10, amount.exponent);
+    }
+
+    const result =
+      this.currencyPipe.transform(value, amount.currency, 'symbol', '1.2-2') ||
+      amount.value + amount.currency;
+    return result;
+  }
+}
+
