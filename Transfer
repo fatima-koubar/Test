@@ -83,3 +83,101 @@ export class ApplePayTestCardsService {
   }
 }
 
+
+import { TestBed } from '@angular/core/testing';
+import { ApplePayTestCardsService } from './apple-pay-test-cards.service';
+import { TranslateService } from '@ngx-translate/core';
+import { ApplePayFlowService } from './apple-pay-flow.service';
+import { AuthorizationScenario, AuthenticationResult, SchemeType } from '../models/enums';
+import { TestCard } from '../models/test-card.model';
+
+describe('ApplePayTestCardsService', () => {
+  let service: ApplePayTestCardsService;
+  let translateServiceSpy: jasmine.SpyObj<TranslateService>;
+  let applePayFlowServiceSpy: jasmine.SpyObj<ApplePayFlowService>;
+
+  const mockTestCards: TestCard[] = [
+    {
+      scheme: SchemeType.MASTERCARD,
+      authorization_scenario: AuthorizationScenario.ACCEPTED,
+      authentication_scenario: {
+        result: AuthenticationResult.NOT_ENROLLED,
+      },
+    } as TestCard,
+    {
+      scheme: SchemeType.VISA,
+      authorization_scenario: AuthorizationScenario.REFUSED,
+    } as TestCard,
+  ];
+
+  beforeEach(() => {
+    translateServiceSpy = jasmine.createSpyObj('TranslateService', ['instant']);
+    applePayFlowServiceSpy = jasmine.createSpyObj(
+      'ApplePayFlowService',
+      ['testCards'],
+    );
+
+    translateServiceSpy.instant.and.callFake((key: string) => key);
+    applePayFlowServiceSpy.testCards.and.returnValue(mockTestCards);
+
+    TestBed.configureTestingModule({
+      providers: [
+        ApplePayTestCardsService,
+        { provide: TranslateService, useValue: translateServiceSpy },
+        { provide: ApplePayFlowService, useValue: applePayFlowServiceSpy },
+      ],
+    });
+
+    service = TestBed.inject(ApplePayTestCardsService);
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+
+  describe('setSortedCards', () => {
+    it('should sort test cards by scheme', () => {
+      service.setSortedCards();
+
+      const result = service.getSortedCards();
+      expect(result.length).toBe(2);
+      expect(result[0].scheme).toBe(SchemeType.MASTERCARD);
+      expect(result[1].scheme).toBe(SchemeType.VISA);
+    });
+  });
+
+  describe('setTestCardsByScheme', () => {
+    it('should group cards by scheme', () => {
+      service.setSortedCards();
+      service.setTestCardsByScheme();
+
+      const result = service.testCardsByScheme();
+      expect(result[SchemeType.VISA]?.length).toBe(1);
+      expect(result[SchemeType.MASTERCARD]?.length).toBe(1);
+    });
+  });
+
+  describe('setArrayPaiementOptions', () => {
+    it('should build payment options array', () => {
+      service.setSortedCards();
+      service.setTestCardsByScheme();
+      service.setArrayPaiementOptions();
+
+      const result = service.getArrayPaiementOptions();
+      expect(result.length).toBe(2);
+
+      const visaGroup = result.find(r => r.optionGroupName === SchemeType.VISA);
+      expect(visaGroup).toBeDefined();
+      expect(visaGroup!.options.length).toBe(1);
+    });
+
+    it('should call translate service for labels', () => {
+      service.setSortedCards();
+      service.setTestCardsByScheme();
+      service.setArrayPaiementOptions();
+
+      expect(translateServiceSpy.instant).toHaveBeenCalled();
+    });
+  });
+});
+
