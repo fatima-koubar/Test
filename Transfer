@@ -1,133 +1,108 @@
 
 genere un unit test pour ce code angular avec jasmine
 
-const MOBILE_DIALOG_CLASS = 'ei_dialog';
-const DESKTOP_DIALOG_CLASS = 'full-screen-dialog';
-const MOBILE_BREAKPOINT = '(max-width: 600px)';
+@Injectable({
+  providedIn: 'root',
+})
+export class ApplePayService {
+  private _callbackError: (() => void) | undefined;
+  private _callbackSubmit: (() => void) | undefined;
 
-export class ApplePaySandboxAdapter extends ApplePayAdapterService {
-  private readonly _dialog = inject(MatDialog);
-  private readonly _applePayService = inject(ApplePayService);
-  private readonly _breakpointObserver = inject(BreakpointObserver);
+  private readonly _applePayApi = inject(ApplePayApi);
+  private readonly _toastrService = inject(PcToastrService);
 
-  setSession(): void {
-    return;
+  setSubmitEvent(callbackSubmit: () => void): void {
+    this._callbackSubmit = callbackSubmit;
   }
 
-  async startTransaction(): Promise<void> {
-    const isMobile = this._breakpointObserver.isMatched(MOBILE_BREAKPOINT);
-    const dialogRef = this._dialog.open<ApplePayTestCardsComponent, unknown, TestCard | undefined>(
-      ApplePayTestCardsComponent,
-      {
-        panelClass: isMobile ? [MOBILE_DIALOG_CLASS, DESKTOP_DIALOG_CLASS] : MOBILE_DIALOG_CLASS,
-      },
-    );
+  setErrorEvent(callbackError: () => void): void {
+    this._callbackError = callbackError;
+  }
 
-    const testCard = await firstValueFrom(dialogRef.afterClosed());
-    if (!testCard) {
-      throw new Error('ApplePaySandboxSDKAdapter | startTransaction | Carte de test inexistante.');
+  setCollectionSessionHref(paymentMeanHref: string): void {
+    this._applePayApi.setCollectionSessionHref(paymentMeanHref);
+  }
+
+  async getCollectionSessionData(): Promise<{
+    brandList: string[];
+    testCards: TestCard[];
+    countryCode: string;
+    merchantName: string;
+    amount: string;
+    payload: ApplePaySessionPayload;
+  }> {
+    try {
+      const res = await firstValueFrom(this._applePayApi.getCollectionSessionData());
+
+      const adjustedValue = res.amount.value * Math.pow(10, res.amount.exponent);
+      const formattedValue = adjustedValue.toFixed(2);
+
+      return {
+        brandList: res.display_data['accepted_schemes'].map((scheme: any) =>
+          scheme.brand.toLowerCase(),
+        ),
+        testCards: res.display_data['test_cards'],
+        countryCode: res.country_code,
+        merchantName: res.merchant_name,
+        amount: formattedValue,
+        payload: {
+          collection_session_id: res.id,
+          merchant_identifier: res.merchant_identifier,
+          merchant_name: res.merchant_name,
+          domain: res.domain,
+        },
+      };
+    } catch {
+      this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
+      throw new Error('APPLE_PAY_DATA_ERROR');
     }
-    this._applePayService.putToken(this.buildApplePayToken(testCard));
   }
 
-  private buildApplePayToken(testCard: TestCard): string {
-    const tokenPayload = {
-      account_number: testCard.account_number,
-      expiration_date: TestCardsService.getTwoYearsFromNowFormattedDate(),
-      cvx: '666',
-      holder_name: 'John Doe',
-      scheme: testCard.scheme,
-    };
+  async putToken(token: string): Promise<void> {
+    try {
+      await firstValueFrom(this._applePayApi.putToken(token));
+      if (this._callbackSubmit) {
+        this._callbackSubmit();
+      }
+    } catch (error) {
+      this.handlePutTokenError(error);
+      if (this._callbackError) {
+        this._callbackError();
+      }
+    }
+  }
 
-    return btoa(JSON.stringify(tokenPayload));
+  private handlePutTokenError(error: unknown): void {
+    if (!(error instanceof APIError)) {
+      this.notifyTechnicalError();
+      return;
+    }
+
+    const errorType = error.error['error'].type;
+
+    switch (errorType) {
+      case CARD_ERRORS.CARD_NOT_ACCEPTED:
+        this._toastrService.notify('PAYMENT_MEANS.APPLE_PAY.ERRORS.CARD_NOT_ACCEPTED');
+        break;
+      case CARD_ERRORS.EXPIRATION_DATE_NOT_ACCEPTED:
+        this._toastrService.notify('PAYMENT_MEANS.APPLE_PAY.ERRORS.RESTRICTION_EXPIRATION_DATE', {
+          months: error.error['restriction_delay'],
+        });
+        break;
+      case CARD_ERRORS.EXPIRATION_DATE_EXPIRED:
+        this._toastrService.notify('PAYMENT_MEANS.APPLE_PAY.ERRORS.EXPIRED');
+        break;
+      case CARD_ERRORS.INVALID_CARD:
+        this._toastrService.notify('PAYMENT_MEANS.APPLE_PAY.ERRORS.INVALID');
+        break;
+      default:
+        this.notifyTechnicalError();
+        break;
+    }
+  }
+
+  private notifyTechnicalError(): void {
+    this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
   }
 }
-
-import { TestBed } from '@angular/core/testing';
-import { MatDialog, MatDialogRef } from '@angular/material/dialog';
-import { BreakpointObserver } from '@angular/cdk/layout';
-import { of } from 'rxjs';
-
-describe('ApplePaySandboxAdapter', () => {
-  let adapter: ApplePaySandboxAdapter;
-  let dialogSpy: jasmine.SpyObj<MatDialog>;
-  let applePayServiceSpy: jasmine.SpyObj<ApplePayService>;
-  let breakpointObserverSpy: jasmine.SpyObj<BreakpointObserver>;
-  let dialogRefSpy: jasmine.SpyObj<MatDialogRef<any>>;
-
-  const mockTestCard: TestCard = {
-    account_number: '4111111111111111',
-    scheme: 'visa',
-  } as TestCard;
-
-  beforeEach(() => {
-    dialogSpy = jasmine.createSpyObj('MatDialog', ['open']);
-    applePayServiceSpy = jasmine.createSpyObj('ApplePayService', ['putToken']);
-    breakpointObserverSpy = jasmine.createSpyObj('BreakpointObserver', ['isMatched']);
-    dialogRefSpy = jasmine.createSpyObj('MatDialogRef', ['afterClosed']);
-
-    TestBed.configureTestingModule({
-      providers: [
-        ApplePaySandboxAdapter,
-        { provide: MatDialog, useValue: dialogSpy },
-        { provide: ApplePayService, useValue: applePayServiceSpy },
-        { provide: BreakpointObserver, useValue: breakpointObserverSpy },
-      ],
-    });
-
-    adapter = TestBed.inject(ApplePaySandboxAdapter);
-  });
-
-  it('should open dialog with mobile classes when on mobile', async () => {
-    breakpointObserverSpy.isMatched.and.returnValue(true);
-    dialogRefSpy.afterClosed.and.returnValue(of(mockTestCard));
-    dialogSpy.open.and.returnValue(dialogRefSpy);
-
-    await adapter.startTransaction();
-
-    expect(dialogSpy.open).toHaveBeenCalledWith(
-      ApplePayTestCardsComponent,
-      jasmine.objectContaining({
-        panelClass: ['ei_dialog', 'full-screen-dialog'],
-      }),
-    );
-  });
-
-  it('should open dialog with desktop class when not on mobile', async () => {
-    breakpointObserverSpy.isMatched.and.returnValue(false);
-    dialogRefSpy.afterClosed.and.returnValue(of(mockTestCard));
-    dialogSpy.open.and.returnValue(dialogRefSpy);
-
-    await adapter.startTransaction();
-
-    expect(dialogSpy.open).toHaveBeenCalledWith(
-      ApplePayTestCardsComponent,
-      jasmine.objectContaining({
-        panelClass: 'ei_dialog',
-      }),
-    );
-  });
-
-  it('should throw an error if dialog returns no test card', async () => {
-    breakpointObserverSpy.isMatched.and.returnValue(false);
-    dialogRefSpy.afterClosed.and.returnValue(of(undefined));
-    dialogSpy.open.and.returnValue(dialogRefSpy);
-
-    await expectAsync(adapter.startTransaction()).toBeRejectedWithError(
-      'ApplePaySandboxSDKAdapter | startTransaction | Carte de test inexistante.',
-    );
-  });
-
-  it('should generate token and send it to ApplePayService', async () => {
-    spyOn<any>(adapter, 'buildApplePayToken').and.returnValue('encoded-token');
-    breakpointObserverSpy.isMatched.and.returnValue(false);
-    dialogRefSpy.afterClosed.and.returnValue(of(mockTestCard));
-    dialogSpy.open.and.returnValue(dialogRefSpy);
-
-    await adapter.startTransaction();
-
-    expect(adapter['buildApplePayToken']).toHaveBeenCalledWith(mockTestCard);
-    expect(applePayServiceSpy.putToken).toHaveBeenCalledWith('encoded-token');
-  });
-});
 
