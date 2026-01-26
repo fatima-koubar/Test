@@ -1,166 +1,48 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
-import { ApiCallerService, ApiUrlService } from '../../core';
-import { map, Observable } from 'rxjs';
-import { MerchantValidationRequest } from '../models/merchant-validation-request.model';
-import { ApplePayDTO } from './dtos/apple-pay.dto';
-import { MerchantVerificationDTO } from './dtos/merchant-verification.dto';
-import { validateApplePayDTO, validateMerchantVerificationDTO } from './validators';
+I have this error : 
+Error: Cannot override provider when the test module has already been instantiated. Make sure you are not using `inject` before `overrideProvider`.
 
-const merchantverificationPath = '/applepay/merchantverification';
+describe('ApplePayComponent', () => {
+  let component: ApplePayComponent;
+  let fixture: ComponentFixture<ApplePayComponent>;
 
-@Injectable({
-  providedIn: 'root',
-})
-export class ApplePayApi {
-  private readonly _apiCallerService = inject(ApiCallerService);
-  private readonly _apiUrlService = inject(ApiUrlService);
-  private readonly _apiBaseUrl = signal<string>(this._apiUrlService.apiUrl());
-  private readonly collectionSessionHref = signal<string>('');
-
-  private readonly sessionEndpoint = computed(
-    () => `${this._apiBaseUrl()}${this.collectionSessionHref()}`,
-  );
-
-  public setCollectionSessionHref(href: string): void {
-    return this.collectionSessionHref.set(href);
-  }
-
-  public getCollectionSessionData(): Observable<ApplePayDTO> {
-    return this._apiCallerService.get(this.sessionEndpoint()).pipe(
-      map((raw) => {
-        validateApplePayDTO(raw);
-        return raw;
-      }),
-    );
-  }
-
-  public putToken(token: string): Observable<void> {
-    return this._apiCallerService
-      .put(`${this.sessionEndpoint()}/token`, { token: token })
-      .pipe(map(() => {}));
-  }
-
-  public merchantVerification(
-    merchantValidationRequest: MerchantValidationRequest,
-  ): Observable<MerchantVerificationDTO> | never {
-    return this._apiCallerService
-      .post(
-        'https://' + window.location.hostname + merchantverificationPath,
-        JSON.stringify(merchantValidationRequest),
-      )
-      .pipe(
-        map((raw) => {
-          validateMerchantVerificationDTO(raw);
-          return raw;
-        }),
-      );
-  }
-}
-
-
-
-
-import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
-
-import { ApplePayApi } from './apple-pay.api';
-import { ApiCallerService, ApiUrlService } from '../../core';
-import { ApplePayDTO } from './dtos/apple-pay.dto';
-import { MerchantVerificationDTO } from './dtos/merchant-verification.dto';
-import { MerchantValidationRequest } from '../models/merchant-validation-request.model';
-
-import * as validators from './validators';
-
-describe('ApplePayApi', () => {
-  let service: ApplePayApi;
-  let apiCallerService: jasmine.SpyObj<ApiCallerService>;
-  let apiUrlService: jasmine.SpyObj<ApiUrlService>;
-
-  beforeEach(() => {
-    apiCallerService = jasmine.createSpyObj<ApiCallerService>('ApiCallerService', [
-      'get',
-      'put',
-      'post',
-    ]);
-
-    apiUrlService = jasmine.createSpyObj<ApiUrlService>('ApiUrlService', ['apiUrl']);
-    apiUrlService.apiUrl.and.returnValue('https://api.example.com');
-
+  beforeEach(async () => {
+   
     TestBed.configureTestingModule({
+      imports: [ApplePayComponent],
       providers: [
-        ApplePayApi,
-        { provide: ApiCallerService, useValue: apiCallerService },
-        { provide: ApiUrlService, useValue: apiUrlService },
+        { provide: PAYMENT_SESSION_CONTEXT, useValue: INTEGRATION_TYPES.PAYMENT_PAGE },
+        { provide: DOCUMENT, useValue: document },
+        importProvidersFrom([TranslateModule.forRoot()]),
       ],
-    });
+    }).compileComponents();
 
-    service = TestBed.inject(ApplePayApi);
+    fixture = TestBed.createComponent(ApplePayComponent);
+    component = fixture.componentInstance;
+
+    fixture.componentRef.setInput('paymentMeanHref', 'https://monetico-services.com/c9da4fcc8');
+    fixture.componentRef.setInput('amount', { currency: 'EUR', exponent: 100, value: 100 } as any);
   });
 
-  describe('setCollectionSessionHref', () => {
-    it('should update the session endpoint', () => {
-      service.setCollectionSessionHref('/session/123');
-
-      apiCallerService.get.and.returnValue(of({} as ApplePayDTO));
-
-      service.getCollectionSessionData().subscribe();
-
-      expect(apiCallerService.get).toHaveBeenCalledWith(
-        'https://api.example.com/session/123',
-      );
-    });
+  it('should create', () => {
+    expect(component).toBeTruthy();
   });
 
-  describe('getCollectionSessionData', () => {
-    it('should call GET and validate the ApplePayDTO', () => {
-      const dto = {} as ApplePayDTO;
-      spyOn(validators, 'validateApplePayDTO');
+  it('should post message when integration type is PAYMENT_COMPONENT', () => {
+    spyOn(window.parent, 'postMessage');
 
-      service.setCollectionSessionHref('/session/abc');
-      apiCallerService.get.and.returnValue(of(dto));
-
-      service.getCollectionSessionData().subscribe((result) => {
-        expect(result).toBe(dto);
-      });
-
-      expect(apiCallerService.get).toHaveBeenCalled();
-      expect(validators.validateApplePayDTO).toHaveBeenCalledWith(dto);
+    TestBed.overrideProvider(PAYMENT_SESSION_CONTEXT, {
+      useValue: INTEGRATION_TYPES.PAYMENT_COMPONENT,
     });
-  });
 
-  describe('putToken', () => {
-    it('should PUT token to the correct endpoint', () => {
-      service.setCollectionSessionHref('/session/xyz');
-      apiCallerService.put.and.returnValue(of(null));
+    fixture = TestBed.createComponent(ApplePayComponent);
+    component = fixture.componentInstance;
+    fixture.componentRef.setInput('paymentMeanHref', '');
+    fixture.componentRef.setInput('amount', {});
 
-      service.putToken('test-token').subscribe();
+    fixture.detectChanges();
 
-      expect(apiCallerService.put).toHaveBeenCalledWith(
-        'https://api.example.com/session/xyz/token',
-        { token: 'test-token' },
-      );
-    });
-  });
+    component.handleClick();
 
-  describe('merchantVerification', () => {
-    it('should POST merchant verification request and validate response', () => {
-      const request = {} as MerchantValidationRequest;
-      const response = {} as MerchantVerificationDTO;
-
-      spyOn(validators, 'validateMerchantVerificationDTO');
-      apiCallerService.post.and.returnValue(of(response));
-
-      service.merchantVerification(request).subscribe((result) => {
-        expect(result).toBe(response);
-      });
-
-      expect(apiCallerService.post).toHaveBeenCalledWith(
-        `https://${window.location.hostname}/applepay/merchantverification`,
-        JSON.stringify(request),
-      );
-
-      expect(validators.validateMerchantVerificationDTO).toHaveBeenCalledWith(response);
-    });
+    expect(window.parent.postMessage).toHaveBeenCalled();
   });
 });
-
