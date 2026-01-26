@@ -4,272 +4,82 @@ genere un unit test pour ce code angular avec jasmine
 @Injectable({
   providedIn: 'root',
 })
-export class ApplePayService {
-  private _callbackError: (() => void) | undefined;
-  private _callbackSubmit: (() => void) | undefined;
+export class ApplePayTestCardsService {
+  readonly sortedTestCards: WritableSignal<TestCard[]> = signal<Array<TestCard>>([]);
+  readonly testCardsByScheme: WritableSignal<Partial<Record<SchemeType, Array<TestCard>>>> = signal<
+    Partial<Record<SchemeType, Array<TestCard>>>
+  >({});
+  readonly arrayPaiementOptions: WritableSignal<ArrayOption[]> = signal<ArrayOption[]>([]);
 
-  private readonly _applePayApi = inject(ApplePayApi);
-  private readonly _toastrService = inject(PcToastrService);
+  private readonly _translateService = inject(TranslateService);
+  private readonly _applePayFlowService = inject(ApplePayFlowService);
 
-  setSubmitEvent(callbackSubmit: () => void): void {
-    this._callbackSubmit = callbackSubmit;
+  getSortedCards(): TestCard[] {
+    return this.sortedTestCards();
   }
 
-  setErrorEvent(callbackError: () => void): void {
-    this._callbackError = callbackError;
+  setSortedCards(): void {
+    this.sortedTestCards.set(
+      [...this._applePayFlowService.testCards()].sort((a, b) => a.scheme.localeCompare(b.scheme)),
+    );
   }
 
-  setCollectionSessionHref(paymentMeanHref: string): void {
-    this._applePayApi.setCollectionSessionHref(paymentMeanHref);
+  setTestCardsByScheme(): void {
+    this.testCardsByScheme.set(
+      this.sortedTestCards().reduce(
+        (acc: Partial<Record<SchemeType, Array<TestCard>>>, testCard) =>
+          Object.assign(acc, {
+            [testCard.scheme]: (acc[testCard.scheme] ?? []).concat(testCard),
+          }),
+        {},
+      ),
+    );
   }
 
-  async getCollectionSessionData(): Promise<{
-    brandList: string[];
-    testCards: TestCard[];
-    countryCode: string;
-    merchantName: string;
-    amount: string;
-    payload: ApplePaySessionPayload;
-  }> {
-    try {
-      const res = await firstValueFrom(this._applePayApi.getCollectionSessionData());
-
-      const adjustedValue = res.amount.value * Math.pow(10, res.amount.exponent);
-      const formattedValue = adjustedValue.toFixed(2);
-
-      return {
-        brandList: res.display_data['accepted_schemes'].map((scheme: any) =>
-          scheme.brand.toLowerCase(),
-        ),
-        testCards: res.display_data['test_cards'],
-        countryCode: res.country_code,
-        merchantName: res.merchant_name,
-        amount: formattedValue,
-        payload: {
-          collection_session_id: res.id,
-          merchant_identifier: res.merchant_identifier,
-          merchant_name: res.merchant_name,
-          domain: res.domain,
-        },
-      };
-    } catch {
-      this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
-      throw new Error('APPLE_PAY_DATA_ERROR');
-    }
+  getArrayPaiementOptions(): ArrayOption[] {
+    return this.arrayPaiementOptions();
   }
 
-  async putToken(token: string): Promise<void> {
-    try {
-      await firstValueFrom(this._applePayApi.putToken(token));
-      if (this._callbackSubmit) {
-        this._callbackSubmit();
-      }
-    } catch (error) {
-      this.handlePutTokenError(error);
-      if (this._callbackError) {
-        this._callbackError();
-      }
-    }
+  setArrayPaiementOptions(): void {
+    let index = 0;
+    this.arrayPaiementOptions.set(
+      Object.entries(this.testCardsByScheme()).map<ArrayOption>((entry) => ({
+        optionGroupName: entry[0],
+        options: entry[1].reduce((options: Array<Option>, testCard) => {
+          const scenarioStatusLabel = this.getScenarioStatusLabel(testCard);
+          const threeDSLabel = this.getThreeDSLabel(testCard);
+          if (!testCard.authentication_scenario) {
+            options.push(
+              new Option(`sc-${index}`, `${testCard.scheme} - ${scenarioStatusLabel}`, ''),
+            );
+            return options;
+          }
+
+          options.push(
+            new Option(
+              `sc-${index}`,
+              `${testCard.scheme} - ${scenarioStatusLabel} - ${threeDSLabel}`,
+              '',
+            ),
+          );
+          index++;
+          return options;
+        }, []),
+      })),
+    );
   }
 
-  private handlePutTokenError(error: unknown): void {
-    if (!(error instanceof APIError)) {
-      this.notifyTechnicalError();
-      return;
-    }
-
-    const errorType = error.error['error'].type;
-
-    switch (errorType) {
-      case CARD_ERRORS.CARD_NOT_ACCEPTED:
-        this._toastrService.notify('PAYMENT_MEANS.APPLE_PAY.ERRORS.CARD_NOT_ACCEPTED');
-        break;
-      case CARD_ERRORS.EXPIRATION_DATE_NOT_ACCEPTED:
-        this._toastrService.notify('PAYMENT_MEANS.APPLE_PAY.ERRORS.RESTRICTION_EXPIRATION_DATE', {
-          months: error.error['restriction_delay'],
-        });
-        break;
-      case CARD_ERRORS.EXPIRATION_DATE_EXPIRED:
-        this._toastrService.notify('PAYMENT_MEANS.APPLE_PAY.ERRORS.EXPIRED');
-        break;
-      case CARD_ERRORS.INVALID_CARD:
-        this._toastrService.notify('PAYMENT_MEANS.APPLE_PAY.ERRORS.INVALID');
-        break;
-      default:
-        this.notifyTechnicalError();
-        break;
-    }
+  private getScenarioStatusLabel(testCard: TestCard): string {
+    return testCard.authorization_scenario === AuthorizationScenario.ACCEPTED
+      ? this._translateService.instant('PAYMENT_MEANS.CARD.TEST_CARD.PAYMENT_STATUS.ACCEPTED')
+      : this._translateService.instant('PAYMENT_MEANS.CARD.TEST_CARD.PAYMENT_STATUS.REFUSED');
   }
 
-  private notifyTechnicalError(): void {
-    this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
+  private getThreeDSLabel(testCard: TestCard): string {
+    return testCard.authentication_scenario &&
+      testCard.authentication_scenario.result === AuthenticationResult.NOT_ENROLLED
+      ? this._translateService.instant('PAYMENT_MEANS.CARD.TEST_CARD.3DS_STATUS.NOT_SUPPORTED')
+      : this._translateService.instant('PAYMENT_MEANS.CARD.TEST_CARD.3DS_STATUS.SUPPORTED');
   }
 }
-
-
-import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
-
-import { ApplePayService } from './apple-pay.service';
-import { ApplePayApi } from './apple-pay.api';
-import { PcToastrService } from '@pc/ui-kit';
-import { APIError } from '@pc/api';
-import { CARD_ERRORS } from '../constants/card-errors';
-
-describe('ApplePayService', () => {
-  let service: ApplePayService;
-  let applePayApi: jasmine.SpyObj<ApplePayApi>;
-  let toastrService: jasmine.SpyObj<PcToastrService>;
-
-  beforeEach(() => {
-    applePayApi = jasmine.createSpyObj<ApplePayApi>('ApplePayApi', [
-      'getCollectionSessionData',
-      'putToken',
-      'setCollectionSessionHref',
-    ]);
-
-    toastrService = jasmine.createSpyObj<PcToastrService>('PcToastrService', ['notify']);
-
-    TestBed.configureTestingModule({
-      providers: [
-        ApplePayService,
-        { provide: ApplePayApi, useValue: applePayApi },
-        { provide: PcToastrService, useValue: toastrService },
-      ],
-    });
-
-    service = TestBed.inject(ApplePayService);
-  });
-
-  describe('setCollectionSessionHref', () => {
-    it('should forward href to api', () => {
-      service.setCollectionSessionHref('href-test');
-
-      expect(applePayApi.setCollectionSessionHref).toHaveBeenCalledWith('href-test');
-    });
-  });
-
-  describe('getCollectionSessionData', () => {
-    it('should return formatted collection session data', async () => {
-      applePayApi.getCollectionSessionData.and.returnValue(
-        of({
-          id: 'session-id',
-          country_code: 'FR',
-          merchant_name: 'Apple Merchant',
-          merchant_identifier: 'merchant.id',
-          domain: 'example.com',
-          amount: {
-            value: 1234,
-            exponent: -2,
-          },
-          display_data: {
-            accepted_schemes: [{ brand: 'VISA' }, { brand: 'MASTERCARD' }],
-            test_cards: [{ pan: '4111111111111111' }],
-          },
-        }),
-      );
-
-      const result = await service.getCollectionSessionData();
-
-      expect(result).toEqual({
-        brandList: ['visa', 'mastercard'],
-        testCards: [{ pan: '4111111111111111' }],
-        countryCode: 'FR',
-        merchantName: 'Apple Merchant',
-        amount: '12.34',
-        payload: {
-          collection_session_id: 'session-id',
-          merchant_identifier: 'merchant.id',
-          merchant_name: 'Apple Merchant',
-          domain: 'example.com',
-        },
-      });
-    });
-
-    it('should notify and throw error on api failure', async () => {
-      applePayApi.getCollectionSessionData.and.returnValue(
-        throwError(() => new Error('boom')),
-      );
-
-      await expectAsync(service.getCollectionSessionData()).toBeRejectedWithError(
-        'APPLE_PAY_DATA_ERROR',
-      );
-
-      expect(toastrService.notify).toHaveBeenCalledWith(
-        '_SHARED.ERRORS.TECHNICAL_PROBLEM',
-      );
-    });
-  });
-
-  describe('putToken', () => {
-    it('should call submit callback on success', async () => {
-      const submitSpy = jasmine.createSpy('submit');
-      service.setSubmitEvent(submitSpy);
-
-      applePayApi.putToken.and.returnValue(of(void 0));
-
-      await service.putToken('token-123');
-
-      expect(submitSpy).toHaveBeenCalled();
-    });
-
-    it('should call error callback and notify on technical error', async () => {
-      const errorSpy = jasmine.createSpy('error');
-      service.setErrorEvent(errorSpy);
-
-      applePayApi.putToken.and.returnValue(
-        throwError(() => new Error('technical')),
-      );
-
-      await service.putToken('token-123');
-
-      expect(toastrService.notify).toHaveBeenCalledWith(
-        '_SHARED.ERRORS.TECHNICAL_PROBLEM',
-      );
-      expect(errorSpy).toHaveBeenCalled();
-    });
-
-    it('should notify CARD_NOT_ACCEPTED error', async () => {
-      const apiError = new APIError({
-        error: {
-          error: {
-            type: CARD_ERRORS.CARD_NOT_ACCEPTED,
-          },
-        },
-      } as any);
-
-      applePayApi.putToken.and.returnValue(
-        throwError(() => apiError),
-      );
-
-      await service.putToken('token-123');
-
-      expect(toastrService.notify).toHaveBeenCalledWith(
-        'PAYMENT_MEANS.APPLE_PAY.ERRORS.CARD_NOT_ACCEPTED',
-      );
-    });
-
-    it('should notify EXPIRATION_DATE_NOT_ACCEPTED with params', async () => {
-      const apiError = new APIError({
-        error: {
-          error: {
-            type: CARD_ERRORS.EXPIRATION_DATE_NOT_ACCEPTED,
-          },
-          restriction_delay: 6,
-        },
-      } as any);
-
-      applePayApi.putToken.and.returnValue(
-        throwError(() => apiError),
-      );
-
-      await service.putToken('token-123');
-
-      expect(toastrService.notify).toHaveBeenCalledWith(
-        'PAYMENT_MEANS.APPLE_PAY.ERRORS.RESTRICTION_EXPIRATION_DATE',
-        { months: 6 },
-      );
-    });
-  });
-});
 
