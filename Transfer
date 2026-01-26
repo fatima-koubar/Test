@@ -106,3 +106,170 @@ export class ApplePayService {
   }
 }
 
+
+import { TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
+
+import { ApplePayService } from './apple-pay.service';
+import { ApplePayApi } from './apple-pay.api';
+import { PcToastrService } from '@pc/ui-kit';
+import { APIError } from '@pc/api';
+import { CARD_ERRORS } from '../constants/card-errors';
+
+describe('ApplePayService', () => {
+  let service: ApplePayService;
+  let applePayApi: jasmine.SpyObj<ApplePayApi>;
+  let toastrService: jasmine.SpyObj<PcToastrService>;
+
+  beforeEach(() => {
+    applePayApi = jasmine.createSpyObj<ApplePayApi>('ApplePayApi', [
+      'getCollectionSessionData',
+      'putToken',
+      'setCollectionSessionHref',
+    ]);
+
+    toastrService = jasmine.createSpyObj<PcToastrService>('PcToastrService', ['notify']);
+
+    TestBed.configureTestingModule({
+      providers: [
+        ApplePayService,
+        { provide: ApplePayApi, useValue: applePayApi },
+        { provide: PcToastrService, useValue: toastrService },
+      ],
+    });
+
+    service = TestBed.inject(ApplePayService);
+  });
+
+  describe('setCollectionSessionHref', () => {
+    it('should forward href to api', () => {
+      service.setCollectionSessionHref('href-test');
+
+      expect(applePayApi.setCollectionSessionHref).toHaveBeenCalledWith('href-test');
+    });
+  });
+
+  describe('getCollectionSessionData', () => {
+    it('should return formatted collection session data', async () => {
+      applePayApi.getCollectionSessionData.and.returnValue(
+        of({
+          id: 'session-id',
+          country_code: 'FR',
+          merchant_name: 'Apple Merchant',
+          merchant_identifier: 'merchant.id',
+          domain: 'example.com',
+          amount: {
+            value: 1234,
+            exponent: -2,
+          },
+          display_data: {
+            accepted_schemes: [{ brand: 'VISA' }, { brand: 'MASTERCARD' }],
+            test_cards: [{ pan: '4111111111111111' }],
+          },
+        }),
+      );
+
+      const result = await service.getCollectionSessionData();
+
+      expect(result).toEqual({
+        brandList: ['visa', 'mastercard'],
+        testCards: [{ pan: '4111111111111111' }],
+        countryCode: 'FR',
+        merchantName: 'Apple Merchant',
+        amount: '12.34',
+        payload: {
+          collection_session_id: 'session-id',
+          merchant_identifier: 'merchant.id',
+          merchant_name: 'Apple Merchant',
+          domain: 'example.com',
+        },
+      });
+    });
+
+    it('should notify and throw error on api failure', async () => {
+      applePayApi.getCollectionSessionData.and.returnValue(
+        throwError(() => new Error('boom')),
+      );
+
+      await expectAsync(service.getCollectionSessionData()).toBeRejectedWithError(
+        'APPLE_PAY_DATA_ERROR',
+      );
+
+      expect(toastrService.notify).toHaveBeenCalledWith(
+        '_SHARED.ERRORS.TECHNICAL_PROBLEM',
+      );
+    });
+  });
+
+  describe('putToken', () => {
+    it('should call submit callback on success', async () => {
+      const submitSpy = jasmine.createSpy('submit');
+      service.setSubmitEvent(submitSpy);
+
+      applePayApi.putToken.and.returnValue(of(void 0));
+
+      await service.putToken('token-123');
+
+      expect(submitSpy).toHaveBeenCalled();
+    });
+
+    it('should call error callback and notify on technical error', async () => {
+      const errorSpy = jasmine.createSpy('error');
+      service.setErrorEvent(errorSpy);
+
+      applePayApi.putToken.and.returnValue(
+        throwError(() => new Error('technical')),
+      );
+
+      await service.putToken('token-123');
+
+      expect(toastrService.notify).toHaveBeenCalledWith(
+        '_SHARED.ERRORS.TECHNICAL_PROBLEM',
+      );
+      expect(errorSpy).toHaveBeenCalled();
+    });
+
+    it('should notify CARD_NOT_ACCEPTED error', async () => {
+      const apiError = new APIError({
+        error: {
+          error: {
+            type: CARD_ERRORS.CARD_NOT_ACCEPTED,
+          },
+        },
+      } as any);
+
+      applePayApi.putToken.and.returnValue(
+        throwError(() => apiError),
+      );
+
+      await service.putToken('token-123');
+
+      expect(toastrService.notify).toHaveBeenCalledWith(
+        'PAYMENT_MEANS.APPLE_PAY.ERRORS.CARD_NOT_ACCEPTED',
+      );
+    });
+
+    it('should notify EXPIRATION_DATE_NOT_ACCEPTED with params', async () => {
+      const apiError = new APIError({
+        error: {
+          error: {
+            type: CARD_ERRORS.EXPIRATION_DATE_NOT_ACCEPTED,
+          },
+          restriction_delay: 6,
+        },
+      } as any);
+
+      applePayApi.putToken.and.returnValue(
+        throwError(() => apiError),
+      );
+
+      await service.putToken('token-123');
+
+      expect(toastrService.notify).toHaveBeenCalledWith(
+        'PAYMENT_MEANS.APPLE_PAY.ERRORS.RESTRICTION_EXPIRATION_DATE',
+        { months: 6 },
+      );
+    });
+  });
+});
+
