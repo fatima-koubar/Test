@@ -1,84 +1,44 @@
-fichier .spec.ts: 
-describe('ApplePayComponent', () => {
-  let component: ApplePayComponent;
-  let fixture: ComponentFixture<ApplePayComponent>;
 
-  let applePayAdapterServiceSpy: jasmine.SpyObj<ApplePayAdapterService>;
-  let applePayServiceSpy: jasmine.SpyObj<ApplePayService>;
-  let applePayFlowServiceSpy: jasmine.SpyObj<ApplePayFlowService>;
-  let spinnerServiceSpy: jasmine.SpyObj<SpinnerService>;
-  let paymentSessionStoreSpy: jasmine.SpyObj<InstanceType<typeof PaymentSessionStore>>;
+genere un unit test pour ce code angular avec jasmine
 
-  beforeEach(async () => {
-    applePayAdapterServiceSpy = jasmine.createSpyObj<ApplePayAdapterService>(
-      'ApplePayAdapterService',
-      ['canApplePayPayment'],
+const MOBILE_DIALOG_CLASS = 'ei_dialog';
+const DESKTOP_DIALOG_CLASS = 'full-screen-dialog';
+const MOBILE_BREAKPOINT = '(max-width: 600px)';
+
+export class ApplePaySandboxAdapter extends ApplePayAdapterService {
+  private readonly _dialog = inject(MatDialog);
+  private readonly _applePayService = inject(ApplePayService);
+  private readonly _breakpointObserver = inject(BreakpointObserver);
+
+  setSession(): void {
+    return;
+  }
+
+  async startTransaction(): Promise<void> {
+    const isMobile = this._breakpointObserver.isMatched(MOBILE_BREAKPOINT);
+    const dialogRef = this._dialog.open<ApplePayTestCardsComponent, unknown, TestCard | undefined>(
+      ApplePayTestCardsComponent,
+      {
+        panelClass: isMobile ? [MOBILE_DIALOG_CLASS, DESKTOP_DIALOG_CLASS] : MOBILE_DIALOG_CLASS,
+      },
     );
 
-    TestBed.configureTestingModule({
-      imports: [ApplePayComponent],
-      providers: [
-        { provide: ApplePayAdapterService, useValue: applePayAdapterServiceSpy },
-        importProvidersFrom([TranslateModule.forRoot()]),
-      ],
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(ApplePayComponent);
-    component = fixture.componentInstance;
-
-    fixture.componentRef.setInput('paymentMeanHref', 'https://monetico-services.com/c9da4fcc8');
-    fixture.componentRef.setInput('amount', { currency: 'EUR', exponent: 100, value: 100 } as any);
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
-  it('should show payButton button when Apple Pay is NOT available', () => {
-    applePayAdapterServiceSpy.canApplePayPayment.and.returnValue(false);
-
-    fixture.detectChanges();
-
-    const applePayButton = fixture.nativeElement.querySelector('pc-apple-pay-button');
-    const payButton = fixture.nativeElement.querySelector('button.pay-button');
-
-    expect(applePayButton).toBeFalsy();
-    expect(payButton).toBeTruthy();
-  });
-
-});
-
-fichier amountPipe:
-@Pipe({
-  name: 'amount',
-  standalone: true,
-})
-export class AmountPipe implements PipeTransform {
-  _translateService = inject(TranslateService);
-
-  currencyPipe: CurrencyPipe = new CurrencyPipe(this.locale);
-
-  private get locale(): string {
-    const currentLang = this._translateService.getCurrentLang();
-    const fallbackLang = this._translateService.getFallbackLang();
-
-    if (Object.values(LANGUAGES).includes(currentLang as LanguageKey)) {
-      return currentLang;
+    const testCard = await firstValueFrom(dialogRef.afterClosed());
+    if (!testCard) {
+      throw new Error('ApplePaySandboxSDKAdapter | startTransaction | Carte de test inexistante.');
     }
-
-    return typeof fallbackLang === 'string' ? currentLang || fallbackLang : currentLang;
+    this._applePayService.putToken(this.buildApplePayToken(testCard));
   }
 
-  transform(amount: Amount): string {
-    let value = amount.value;
-    if (amount.exponent) {
-      value = value * Math.pow(10, amount.exponent);
-    }
+  private buildApplePayToken(testCard: TestCard): string {
+    const tokenPayload = {
+      account_number: testCard.account_number,
+      expiration_date: TestCardsService.getTwoYearsFromNowFormattedDate(),
+      cvx: '666',
+      holder_name: 'John Doe',
+      scheme: testCard.scheme,
+    };
 
-    const result =
-      this.currencyPipe.transform(value, amount.currency, 'symbol', '1.2-2') ||
-      amount.value + amount.currency;
-    return result;
+    return btoa(JSON.stringify(tokenPayload));
   }
 }
-
