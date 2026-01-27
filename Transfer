@@ -1,72 +1,53 @@
-can we optimise this code ?
+async function triggerPutTokenError(errorPayload: any) {
+  const apiError = new APIError(errorPayload as any);
+  applePayApiSpy.putToken.and.returnValue(throwError(() => apiError));
+  await service.putToken('token-123');
+}
 
-it('should notify CARD_NOT_ACCEPTED error', async () => {
-      const apiError = new APIError({
-        error: {
-          error: {
-            type: CARD_ERRORS.CARD_NOT_ACCEPTED,
-          },
-        },
-      } as any);
 
-      applePayApiSpy.putToken.and.returnValue(throwError(() => apiError));
+const testCases = [
+  {
+    errorType: CARD_ERRORS.CARD_NOT_ACCEPTED,
+    expectedKey: 'PAYMENT_MEANS.APPLE_PAY.ERRORS.CARD_NOT_ACCEPTED',
+  },
+  {
+    errorType: CARD_ERRORS.EXPIRATION_DATE_EXPIRED,
+    expectedKey: 'PAYMENT_MEANS.APPLE_PAY.ERRORS.EXPIRED',
+  },
+  {
+    errorType: CARD_ERRORS.INVALID_CARD,
+    expectedKey: 'PAYMENT_MEANS.APPLE_PAY.ERRORS.INVALID',
+  },
+];
 
-      await service.putToken('token-123');
-
-      expect(toastrServiceSpy.notify).toHaveBeenCalledWith(
-        'PAYMENT_MEANS.APPLE_PAY.ERRORS.CARD_NOT_ACCEPTED',
-      );
-    });
-
-    it('should notify EXPIRATION_DATE_NOT_ACCEPTED with params', async () => {
-      const apiError = new APIError({
-        error: {
-          error: {
-            type: CARD_ERRORS.EXPIRATION_DATE_NOT_ACCEPTED,
-          },
-          restriction_delay: 6,
-        },
-      } as any);
-
-      applePayApiSpy.putToken.and.returnValue(throwError(() => apiError));
-
-      await service.putToken('token-123');
-
-      expect(toastrServiceSpy.notify).toHaveBeenCalledWith(
-        'PAYMENT_MEANS.APPLE_PAY.ERRORS.RESTRICTION_EXPIRATION_DATE',
-        { months: 6 },
-      );
-    });
-  });
-
-  it('should notify EXPIRATION_DATE_EXPIRED error', async () => {
-    const apiError = new APIError({
+testCases.forEach(({ errorType, expectedKey }) => {
+  it(`should notify ${errorType} error`, async () => {
+    await triggerPutTokenError({
       error: {
         error: {
-          type: CARD_ERRORS.EXPIRATION_DATE_EXPIRED,
+          type: errorType,
         },
       },
-    } as any);
+    });
 
-    applePayApiSpy.putToken.and.returnValue(throwError(() => apiError));
-
-    await service.putToken('token-123');
-
-    expect(toastrServiceSpy.notify).toHaveBeenCalledWith('PAYMENT_MEANS.APPLE_PAY.ERRORS.EXPIRED');
+    expect(toastrServiceSpy.notify).toHaveBeenCalledWith(expectedKey);
   });
+});
 
-  it('should notify INVALID_CARD error', async () => {
-    const apiError = new APIError({
+
+it('should notify EXPIRATION_DATE_NOT_ACCEPTED with params', async () => {
+  await triggerPutTokenError({
+    error: {
       error: {
-        error: {
-          type: CARD_ERRORS.INVALID_CARD,
-        },
+        type: CARD_ERRORS.EXPIRATION_DATE_NOT_ACCEPTED,
       },
-    } as any);
-
-    applePayApiSpy.putToken.and.returnValue(throwError(() => apiError));
-
-    await service.putToken('token-123');
-
-    expect(toastrServiceSpy.notify).toHaveBeenCalledWith('PAYMENT_MEANS.APPLE_PAY.ERRORS.INVALID');
+      restriction_delay: 6,
+    },
   });
+
+  expect(toastrServiceSpy.notify).toHaveBeenCalledWith(
+    'PAYMENT_MEANS.APPLE_PAY.ERRORS.RESTRICTION_EXPIRATION_DATE',
+    { months: 6 },
+  );
+});
+
