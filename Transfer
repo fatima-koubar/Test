@@ -1,1 +1,72 @@
+can we optimise this code ?
 
+it('should notify CARD_NOT_ACCEPTED error', async () => {
+      const apiError = new APIError({
+        error: {
+          error: {
+            type: CARD_ERRORS.CARD_NOT_ACCEPTED,
+          },
+        },
+      } as any);
+
+      applePayApiSpy.putToken.and.returnValue(throwError(() => apiError));
+
+      await service.putToken('token-123');
+
+      expect(toastrServiceSpy.notify).toHaveBeenCalledWith(
+        'PAYMENT_MEANS.APPLE_PAY.ERRORS.CARD_NOT_ACCEPTED',
+      );
+    });
+
+    it('should notify EXPIRATION_DATE_NOT_ACCEPTED with params', async () => {
+      const apiError = new APIError({
+        error: {
+          error: {
+            type: CARD_ERRORS.EXPIRATION_DATE_NOT_ACCEPTED,
+          },
+          restriction_delay: 6,
+        },
+      } as any);
+
+      applePayApiSpy.putToken.and.returnValue(throwError(() => apiError));
+
+      await service.putToken('token-123');
+
+      expect(toastrServiceSpy.notify).toHaveBeenCalledWith(
+        'PAYMENT_MEANS.APPLE_PAY.ERRORS.RESTRICTION_EXPIRATION_DATE',
+        { months: 6 },
+      );
+    });
+  });
+
+  it('should notify EXPIRATION_DATE_EXPIRED error', async () => {
+    const apiError = new APIError({
+      error: {
+        error: {
+          type: CARD_ERRORS.EXPIRATION_DATE_EXPIRED,
+        },
+      },
+    } as any);
+
+    applePayApiSpy.putToken.and.returnValue(throwError(() => apiError));
+
+    await service.putToken('token-123');
+
+    expect(toastrServiceSpy.notify).toHaveBeenCalledWith('PAYMENT_MEANS.APPLE_PAY.ERRORS.EXPIRED');
+  });
+
+  it('should notify INVALID_CARD error', async () => {
+    const apiError = new APIError({
+      error: {
+        error: {
+          type: CARD_ERRORS.INVALID_CARD,
+        },
+      },
+    } as any);
+
+    applePayApiSpy.putToken.and.returnValue(throwError(() => apiError));
+
+    await service.putToken('token-123');
+
+    expect(toastrServiceSpy.notify).toHaveBeenCalledWith('PAYMENT_MEANS.APPLE_PAY.ERRORS.INVALID');
+  });
