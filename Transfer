@@ -1,53 +1,59 @@
-async function triggerPutTokenError(errorPayload: any) {
-  const apiError = new APIError(errorPayload as any);
-  applePayApiSpy.putToken.and.returnValue(throwError(() => apiError));
-  await service.putToken('token-123');
+I have this class, and I have an error when running the unit test ( Expected function to throw an Error.)
+
+
+export abstract class ApplePayAdapterService {
+  private readonly APPLE_PAY_SDK_URL =
+    'https://applepay.com/apple-pay-sdk.js';
+  private readonly INTEGRITY_HASH =
+    'sha384-DZRWMZ';
+  private readonly _ressourceLoader = inject(RessourceLoaderService);
+
+  async loadScript(): Promise<void> {
+    try {
+      await this._ressourceLoader.loadScript(this.APPLE_PAY_SDK_URL, {
+        integrity: this.INTEGRITY_HASH,
+        crossOrigin: 'anonymous',
+      });
+    } catch (error) {
+      throw new Error((error as Error).message);
+    }
+  }
 }
 
 
-const testCases = [
-  {
-    errorType: CARD_ERRORS.CARD_NOT_ACCEPTED,
-    expectedKey: 'PAYMENT_MEANS.APPLE_PAY.ERRORS.CARD_NOT_ACCEPTED',
-  },
-  {
-    errorType: CARD_ERRORS.EXPIRATION_DATE_EXPIRED,
-    expectedKey: 'PAYMENT_MEANS.APPLE_PAY.ERRORS.EXPIRED',
-  },
-  {
-    errorType: CARD_ERRORS.INVALID_CARD,
-    expectedKey: 'PAYMENT_MEANS.APPLE_PAY.ERRORS.INVALID',
-  },
-];
+unit test file: 
+fdescribe('ApplePayAdapterService', () => {
+  let service: ApplePayAdapterService;
+  let ressourceLoaderSpy: jasmine.SpyObj<RessourceLoaderService>;
+  let mockWindow: any;
 
-testCases.forEach(({ errorType, expectedKey }) => {
-  it(`should notify ${errorType} error`, async () => {
-    await triggerPutTokenError({
-      error: {
-        error: {
-          type: errorType,
-        },
+  beforeEach(() => {
+    ressourceLoaderSpy = jasmine.createSpyObj('RessourceLoaderService', [
+      'loadScript',
+      'getLoadedResource',
+    ]);
+
+    mockWindow = {
+      ApplePaySession: {
+        canMakePayments: jasmine.createSpy().and.returnValue(true),
+        applePayCapabilities: jasmine
+          .createSpy()
+          .and.resolveTo({ paymentCredentialStatus: 'applePaySupported' }),
       },
+    };
+
+    TestBed.configureTestingModule({
+      providers: [
+        ApplePayAdapterService,
+        { provide: RessourceLoaderService, useValue: ressourceLoaderSpy },
+        { provide: WINDOW, useValue: mockWindow },
+      ],
     });
 
-    expect(toastrServiceSpy.notify).toHaveBeenCalledWith(expectedKey);
+    service = TestBed.inject(ApplePayAdapterService);
   });
-});
+it('should throw an error if script loading fails', () => {
+      ressourceLoaderSpy.loadScript.and.throwError('Load failed');
 
-
-it('should notify EXPIRATION_DATE_NOT_ACCEPTED with params', async () => {
-  await triggerPutTokenError({
-    error: {
-      error: {
-        type: CARD_ERRORS.EXPIRATION_DATE_NOT_ACCEPTED,
-      },
-      restriction_delay: 6,
-    },
-  });
-
-  expect(toastrServiceSpy.notify).toHaveBeenCalledWith(
-    'PAYMENT_MEANS.APPLE_PAY.ERRORS.RESTRICTION_EXPIRATION_DATE',
-    { months: 6 },
-  );
-});
-
+      expect(() => service.loadScript()).toThrowError('Load failed');
+    });
