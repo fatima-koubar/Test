@@ -1,40 +1,64 @@
-import { ApplePayLiveAdapter } from './apple-pay-live-adapter';
-
-describe('ApplePayLiveAdapter', () => {
-  let service: ApplePayLiveAdapter;
+describe('ApplePayAdapterService', () => {
+  let service: ApplePayAdapterService;
+  let ressourceLoaderSpy: jasmine.SpyObj<RessourceLoaderService>;
   let mockApplePaySession: typeof window.ApplePaySession;
 
   beforeEach(() => {
-    service = new ApplePayLiveAdapter();
+    ressourceLoaderSpy = jasmine.createSpyObj('RessourceLoaderService', [
+      'loadScript',
+      'getLoadedResource',
+    ]);
 
     mockApplePaySession = {
       canMakePayments: jasmine.createSpy('canMakePayments').and.returnValue(true),
-      completePayment: jasmine.createSpy('completePayment'),
-      begin: jasmine.createSpy('begin'),
-      abort: jasmine.createSpy('abort'),
-
-      onvalidatemerchant: jasmine.createSpy('onvalidatemerchant') as any,
-      completeMerchantValidation: jasmine.createSpy('completeMerchantValidation'),
-      onpaymentauthorized: jasmine.createSpy('onpaymentauthorized') as any,
       applePayCapabilities: jasmine.createSpy('applePayCapabilities'),
-      oncancel: jasmine.createSpy('oncancel'),
-
-      STATUS_SUCCESS: 1,
-      STATUS_FAILURE: 2,
     } as unknown as typeof window.ApplePaySession;
+
+    TestBed.configureTestingModule({
+      providers: [
+        ApplePayAdapterService,
+        { provide: RessourceLoaderService, useValue: ressourceLoaderSpy },
+      ],
+    });
+
+    service = TestBed.inject(ApplePayAdapterService);
   });
 
-  it('should set the Apple Pay session', () => {
-    service.setSession(mockApplePaySession);
+  describe('canApplePayPayment', () => {
+    it('should return true when script is loaded and Apple Pay is available', () => {
+      ressourceLoaderSpy.getLoadedResource.and.returnValue({
+        promise: Promise.resolve(),
+        element: {} as HTMLScriptElement,
+      });
 
-    expect((service as any).session).toBe(mockApplePaySession);
-  });
-
-  it('should call begin() when starting a transaction', () => {
-    service.setSession(mockApplePaySession);
-
-    service.startTransaction();
-
-    expect(mockApplePaySession.begin).toHaveBeenCalled();
+      expect(service.canApplePayPayment()).toBeTrue();
+    });
   });
 });
+
+
+file ts
+
+canApplePayPayment(): boolean {
+    return (
+      Boolean(this._ressourceLoader.getLoadedResource(this.APPLE_PAY_SDK_URL)) &&
+      window.ApplePaySession.canMakePayments()
+    );
+  }
+
+applePaySession type 
+ ApplePaySession: {
+      canMakePayments(): boolean;
+      completePayment(status: number): void;
+      begin(): void;
+      abort(): void;
+
+      onvalidatemerchant: (event: ApplePayValidateMerchantEvent) => void;
+      completeMerchantValidation(merchantSession: MerchantSession | undefined): void;
+      onpaymentauthorized: (event: ApplePayPaymentAuthorizationEvent) => void;
+      applePayCapabilities(merchantIdentifier: string): Promise<PaymentCredentialStatusResponse>;
+      oncancel: () => void;
+
+      STATUS_SUCCESS: number;
+      STATUS_FAILURE: number;
+    };
