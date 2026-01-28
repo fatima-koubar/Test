@@ -1,25 +1,33 @@
+I have this service and I want to add a unit test file for it
 
- I have a project with angular 19, I want to add a new type ApplePay session; so I created a file named globals.d.ts in /lib, and I added the path in tsconfig.lib.json like this: 
- "include": ["lib/**/*.ts", "lib/**/*.d.ts", "lib/*.d.ts"]
- and I added this code inside globals.d.ts
- 
- export {};
+import { ApplePayAdapterService } from '../../apple-pay-adapter.service';
 
-declare global {
-  interface Window {
-   ApplePaySession: {
-      canMakePayments(): boolean;
-	}
+export class ApplePayLiveAdapter extends ApplePayAdapterService {
+  session!: typeof window.ApplePaySession;
+
+  setSession(session: typeof window.ApplePaySession): void {
+    this.session = session;
+  }
+
+  startTransaction(): void {
+    this.session.begin();
   }
 }
 
-and in my ts file, I added this code: 
-canApplePayPayment(): boolean {
-    return window.ApplePaySession.canMakePayments();
-  }
-  
-  When I start the build, I have this error:
-  error TS2339: Property 'ApplePaySession' does not exist on type 'Window & typeof globalThis'.
-   window.ApplePaySession.canMakePayments()
-   
-   The error is generated in the terminal when starting the build, I dont see any error in my IDE 
+
+and I have added new type 
+ApplePaySession: {
+      canMakePayments(): boolean;
+      completePayment(status: number): void;
+      begin(): void;
+      abort(): void;
+
+      onvalidatemerchant: (event: ApplePayValidateMerchantEvent) => void;
+      completeMerchantValidation(merchantSession: MerchantSession | undefined): void;
+      onpaymentauthorized: (event: ApplePayPaymentAuthorizationEvent) => void;
+      applePayCapabilities(merchantIdentifier: string): Promise<PaymentCredentialStatusResponse>;
+      oncancel: () => void;
+
+      STATUS_SUCCESS: number;
+      STATUS_FAILURE: number;
+    };
