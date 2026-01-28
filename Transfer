@@ -1,33 +1,40 @@
-I have this service and I want to add a unit test file for it
+import { ApplePayLiveAdapter } from './apple-pay-live-adapter';
 
-import { ApplePayAdapterService } from '../../apple-pay-adapter.service';
+describe('ApplePayLiveAdapter', () => {
+  let service: ApplePayLiveAdapter;
+  let mockApplePaySession: typeof window.ApplePaySession;
 
-export class ApplePayLiveAdapter extends ApplePayAdapterService {
-  session!: typeof window.ApplePaySession;
+  beforeEach(() => {
+    service = new ApplePayLiveAdapter();
 
-  setSession(session: typeof window.ApplePaySession): void {
-    this.session = session;
-  }
+    mockApplePaySession = {
+      canMakePayments: jasmine.createSpy('canMakePayments').and.returnValue(true),
+      completePayment: jasmine.createSpy('completePayment'),
+      begin: jasmine.createSpy('begin'),
+      abort: jasmine.createSpy('abort'),
 
-  startTransaction(): void {
-    this.session.begin();
-  }
-}
+      onvalidatemerchant: jasmine.createSpy('onvalidatemerchant') as any,
+      completeMerchantValidation: jasmine.createSpy('completeMerchantValidation'),
+      onpaymentauthorized: jasmine.createSpy('onpaymentauthorized') as any,
+      applePayCapabilities: jasmine.createSpy('applePayCapabilities'),
+      oncancel: jasmine.createSpy('oncancel'),
 
+      STATUS_SUCCESS: 1,
+      STATUS_FAILURE: 2,
+    } as unknown as typeof window.ApplePaySession;
+  });
 
-and I have added new type 
-ApplePaySession: {
-      canMakePayments(): boolean;
-      completePayment(status: number): void;
-      begin(): void;
-      abort(): void;
+  it('should set the Apple Pay session', () => {
+    service.setSession(mockApplePaySession);
 
-      onvalidatemerchant: (event: ApplePayValidateMerchantEvent) => void;
-      completeMerchantValidation(merchantSession: MerchantSession | undefined): void;
-      onpaymentauthorized: (event: ApplePayPaymentAuthorizationEvent) => void;
-      applePayCapabilities(merchantIdentifier: string): Promise<PaymentCredentialStatusResponse>;
-      oncancel: () => void;
+    expect((service as any).session).toBe(mockApplePaySession);
+  });
 
-      STATUS_SUCCESS: number;
-      STATUS_FAILURE: number;
-    };
+  it('should call begin() when starting a transaction', () => {
+    service.setSession(mockApplePaySession);
+
+    service.startTransaction();
+
+    expect(mockApplePaySession.begin).toHaveBeenCalled();
+  });
+});
