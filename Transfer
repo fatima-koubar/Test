@@ -1,139 +1,190 @@
-When I run this test file , I have an error that these two fields are not valid: epoch_timestamp, expires_at
+I have this service, I want to add a unit test with jasmine
+export class ApplePaySessionBuilderService {
+  private readonly _applePayApi = inject(ApplePayApi);
+  private readonly _toastrService = inject(PcToastrService);
+  private readonly _applePayService = inject(ApplePayService);
 
-describe('ApplePayApi', () => {
-  let service: ApplePayApi;
-  let apiCallerServiceSpy: jasmine.SpyObj<ApiCallerService>;
+  createSession(params: {
+    countryCode: string;
+    brandList: string[];
+    merchantName: string;
+    amount: string;
+    payload: ApplePaySessionPayload;
+    container: ViewContainerRef;
+    onCancel?: () => void;
+  }) {
+    const request = new ApplePayRequestBuilder()
+      .setCountryCode(params.countryCode)
+      .setCurrencyCode('EUR')
+      .setMerchantCapabilities(['supports3DS'])
+      .setSupportedNetworks(params.brandList)
+      .setTotal({
+        label: params.merchantName,
+        type: 'final',
+        amount: params.amount,
+      })
+      .build();
 
-  const mockMerchantVerificationDto = {
-    display_name: 'Société COUSSIFL pour le TPE FCOMULT',
-    domain_name: 'rqt-p.monetico-services.com',
-    epoch_timestamp: new Date(),
-    expires_at: new Date(),
-    merchant_identifier: '984D8176',
-    merchant_session_identifier: 'SSH44A4C68',
-    nonce: 'c39ccc91',
-    operational_analytics_identifier: 'Société COUSSIFL pour le TPE FCOMULT',
-    psp_id: '984D817638FD96948C059FE51',
-    retries: 0,
-    signature: '308006092a864886f70d01',
-  };
+    return new ApplePaySessionBuilder(request, params.payload)
+      .withValidationMerchantEventHandler(async (validationRequest) => {
+        try {
+          const data = await firstValueFrom(
+            this._applePayApi.merchantVerification(validationRequest),
+          );
 
-  const mockMerchantValidationRequest = {
-    initiative_context: 'context',
-    validation_url: 'https://validation_url.com/',
-    display_name: 'name',
-    merchant_identifier: '984D8176',
-  };
-
-  beforeEach(() => {
-    apiCallerServiceSpy = jasmine.createSpyObj<ApiCallerService>('ApiCallerService', [
-      'get',
-      'put',
-      'post',
-    ]);
-
-    TestBed.configureTestingModule({
-      providers: [
-        ApplePayApi,
-        { provide: ApiCallerService, useValue: apiCallerServiceSpy },
-      ],
-    });
-
-    service = TestBed.inject(ApplePayApi);
-  });
-
-  it('should be created', () => {
-    expect(service).toBeTruthy();
-  });
-
-  describe('merchantVerification', () => {
-    it('should POST merchant verification request and validate response', () => {
-      const request = mockMerchantValidationRequest;
-      const response = mockMerchantVerificationDto;
-
-      apiCallerServiceSpy.post.and.returnValue(of(response));
-
-      service.merchantVerification(request).subscribe((result) => {
-        expect(result).toBe(response);
-      });
-
-      expect(apiCallerServiceSpy.post).toHaveBeenCalledWith(
-        `https://${window.location.hostname}/applepay/merchantverification`,
-        JSON.stringify(request),
-      );
-    });
-  });
-});
-
-
-
-service file 
-
-const merchantverificationPath = '/applepay/merchantverification';
-
-@Injectable({
-  providedIn: 'root',
-})
-export class ApplePayApi {
-  private readonly _apiCallerService = inject(ApiCallerService);
-
-  public merchantVerification(
-    merchantValidationRequest: MerchantValidationRequest,
-  ): Observable<MerchantVerificationDTO> | never {
-    return this._apiCallerService
-      .post(
-        'https://' + window.location.hostname + merchantverificationPath,
-        JSON.stringify(merchantValidationRequest),
-      )
-      .pipe(
-        map((raw) => {
-          validateMerchantVerificationDTO(raw);
-          return raw;
-        }),
-      );
+          return {
+            displayName: data.display_name,
+            domainName: data.domain_name,
+            epochTimestamp: data.epoch_timestamp,
+            expiresAt: data.expires_at,
+            merchantIdentifier: data.merchant_identifier,
+            merchantSessionIdentifier: data.merchant_session_identifier,
+            nonce: data.nonce,
+            operationalAnalyticsIdentifier: data.operational_analytics_identifier,
+            pspId: data.psp_id,
+            retries: data.retries,
+            signature: data.signature,
+          } as MerchantSession;
+        } catch {
+          this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
+          return;
+        }
+      })
+      .withPaymentAuthorizedEventHandler(async (token: string) => {
+        this._applePayService.putToken(token);
+      })
+      .withCancelEventHandler(params.onCancel)
+      .build();
   }
 }
 
-DTO file
+I have these two files : 
+file: apple-pay-session.builder.ts
+export class ApplePaySessionBuilder {
+  private session: typeof window.ApplePaySession;
+  private applePaySessionPayload: ApplePaySessionPayload;
 
-export type MerchantVerificationDTO = {
-  display_name: string;
-  domain_name: string;
-  epoch_timestamp: Date;
-  expires_at: Date;
-  merchant_identifier: string;
-  merchant_session_identifier: string;
-  nonce: string;
-  operational_analytics_identifier: string;
-  psp_id: string;
-  retries: number;
-  signature: string;
-};
+  constructor(request: ApplePayPaymentRequest, applePaySessionPayload: ApplePaySessionPayload) {
+    this.session = new (window as any).ApplePaySession(3, request);
+    this.applePaySessionPayload = applePaySessionPayload;
+  }
 
+  public withValidationMerchantEventHandler(
+    callback: (
+      merchantValidationRequest: MerchantValidationRequest,
+    ) => Promise<MerchantSession | undefined>,
+  ): this {
+    this.session.onvalidatemerchant = async (event: ApplePayValidateMerchantEvent) => {
+      try {
+        let merchantValidationRequest: MerchantValidationRequest = {
+          merchant_identifier: this.applePaySessionPayload.merchant_identifier,
+          initiative_context: this.applePaySessionPayload.domain ?? window.location.hostname,
+          validation_url: event.validationURL,
+          display_name: this.applePaySessionPayload.merchant_name,
+          collection_session_id: this.applePaySessionPayload.collection_session_id,
+        };
 
-validator file 
+        const validationData = await callback(merchantValidationRequest);
 
-export function validateMerchantVerificationDTO(
-  data: Record<string, unknown>,
-): asserts data is MerchantVerificationDTO {
-  if (!MERCHANT_VERIFICATION_SCHEMA.validate(data)) {
-    throw new InvalidFieldsError(MERCHANT_VERIFICATION_SCHEMA.getValidationErrors(data), data);
+        this.session.completeMerchantValidation(validationData);
+      } catch (error) {
+        this.session.abort();
+      }
+    };
+
+    return this;
+  }
+
+  public withCancelEventHandler(callback: (() => void) | undefined): this {
+    if (callback) this.session.oncancel = callback;
+    return this;
+  }
+
+  public withPaymentAuthorizedEventHandler(callback: (token: string) => Promise<void>) {
+    this.session.onpaymentauthorized = async (event: ApplePayPaymentAuthorizationEvent) => {
+      try {
+        event.payment.token.paymentMethod.network =
+          event.payment.token.paymentMethod.network.toLowerCase();
+
+        await callback(btoa(JSON.stringify(event.payment.token)));
+
+        this.session.completePayment(window.ApplePaySession.STATUS_SUCCESS);
+      } catch (error) {
+        this.session.completePayment(window.ApplePaySession.STATUS_FAILURE);
+      }
+    };
+
+    return this;
+  }
+
+  public build(): typeof window.ApplePaySession {
+    return this.session;
   }
 }
 
-schema file 
 
-export const MERCHANT_VERIFICATION_SCHEMA: Schema = objectType({
-  display_name: stringType(),
-  domain_name: stringType(),
-  epoch_timestamp: numberType(),
-  expires_at: numberType(),
-  merchant_identifier: stringType(),
-  merchant_session_identifier: stringType(),
-  nonce: stringType(),
-  operational_analytics_identifier: stringType(),
-  psp_id: stringType(),
-  retries: numberType(),
-  signature: stringType(),
-});
+file: apple-pay-request.builder.ts
+
+export class ApplePayRequestBuilder {
+  private countryCode!: string;
+  private currencyCode!: string;
+  private merchantCapabilities!: string[];
+  private supportedNetworks!: string[];
+  private total!: { label: string; type: string; amount: string };
+
+  public setCountryCode(countryCode: string): ApplePayRequestBuilder {
+    this.countryCode = countryCode;
+    return this;
+  }
+
+  public setCurrencyCode(currencyCode: string): ApplePayRequestBuilder {
+    this.currencyCode = currencyCode;
+    return this;
+  }
+
+  public setMerchantCapabilities(merchantCapabilities: string[]): ApplePayRequestBuilder {
+    this.merchantCapabilities = merchantCapabilities;
+    return this;
+  }
+
+  public setSupportedNetworks(supportedNetworks: string[]): ApplePayRequestBuilder {
+    this.supportedNetworks = supportedNetworks;
+    return this;
+  }
+
+  public setTotal(total: { label: string; type: string; amount: string }): ApplePayRequestBuilder {
+    this.total = total;
+    return this;
+  }
+
+  private assert(value: unknown, name: string): asserts value {
+    if (!value) throw new Error(`ApplePayRequestBuilder: ${name} is required`);
+  }
+
+  public build(): ApplePayPaymentRequest {
+    this.assert(this.countryCode, 'countryCode');
+    this.assert(this.currencyCode, 'currencyCode');
+    this.assert(this.merchantCapabilities, 'merchantCapabilities');
+    this.assert(this.supportedNetworks, 'supportedNetworks');
+    this.assert(this.total, 'total');
+
+    return new ApplePayPaymentRequest(
+      this.countryCode,
+      this.currencyCode,
+      this.merchantCapabilities,
+      this.supportedNetworks,
+      this.total,
+    );
+  }
+}
+
+export class ApplePayPaymentRequest {
+  constructor(
+    public countryCode: string,
+    public currencyCode: string,
+    public merchantCapabilities: string[],
+    public supportedNetworks: string[],
+    public total: { label: string; type: string; amount: string },
+  ) {}
+}
 
