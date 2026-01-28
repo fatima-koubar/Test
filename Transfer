@@ -1,84 +1,139 @@
-I need a unit test for this file with jasmine
+When I run this test file , I have an error that these two fields are not valid: epoch_timestamp, expires_at
 
-export class ApplePaySessionBuilder {
-  private session: typeof window.ApplePaySession;
-  private applePaySessionPayload: ApplePaySessionPayload;
+describe('ApplePayApi', () => {
+  let service: ApplePayApi;
+  let apiCallerServiceSpy: jasmine.SpyObj<ApiCallerService>;
 
-  constructor(request: ApplePayPaymentRequest, applePaySessionPayload: ApplePaySessionPayload) {
-    this.session = new (window as any).ApplePaySession(3, request);
-    this.applePaySessionPayload = applePaySessionPayload;
-  }
+  const mockMerchantVerificationDto = {
+    display_name: 'Société COUSSIFL pour le TPE FCOMULT',
+    domain_name: 'rqt-p.monetico-services.com',
+    epoch_timestamp: new Date(),
+    expires_at: new Date(),
+    merchant_identifier: '984D8176',
+    merchant_session_identifier: 'SSH44A4C68',
+    nonce: 'c39ccc91',
+    operational_analytics_identifier: 'Société COUSSIFL pour le TPE FCOMULT',
+    psp_id: '984D817638FD96948C059FE51',
+    retries: 0,
+    signature: '308006092a864886f70d01',
+  };
 
-  public withValidationMerchantEventHandler(
-    callback: (
-      merchantValidationRequest: MerchantValidationRequest,
-    ) => Promise<MerchantSession | undefined>,
-  ): this {
-    this.session.onvalidatemerchant = async (event: ApplePayValidateMerchantEvent) => {
-      try {
-        let merchantValidationRequest: MerchantValidationRequest = {
-          merchant_identifier: this.applePaySessionPayload.merchant_identifier,
-          initiative_context: this.applePaySessionPayload.domain ?? window.location.hostname,
-          validation_url: event.validationURL,
-          display_name: this.applePaySessionPayload.merchant_name,
-          collection_session_id: this.applePaySessionPayload.collection_session_id,
-        };
+  const mockMerchantValidationRequest = {
+    initiative_context: 'context',
+    validation_url: 'https://validation_url.com/',
+    display_name: 'name',
+    merchant_identifier: '984D8176',
+  };
 
-        const validationData = await callback(merchantValidationRequest);
+  beforeEach(() => {
+    apiCallerServiceSpy = jasmine.createSpyObj<ApiCallerService>('ApiCallerService', [
+      'get',
+      'put',
+      'post',
+    ]);
 
-        this.session.completeMerchantValidation(validationData);
-      } catch (error) {
-        this.session.abort();
-      }
-    };
+    TestBed.configureTestingModule({
+      providers: [
+        ApplePayApi,
+        { provide: ApiCallerService, useValue: apiCallerServiceSpy },
+      ],
+    });
 
-    return this;
-  }
+    service = TestBed.inject(ApplePayApi);
+  });
 
-  public withCancelEventHandler(callback: (() => void) | undefined): this {
-    if (callback) this.session.oncancel = callback;
-    return this;
-  }
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
 
-  public withPaymentAuthorizedEventHandler(callback: (token: string) => Promise<void>) {
-    this.session.onpaymentauthorized = async (event: ApplePayPaymentAuthorizationEvent) => {
-      try {
-        event.payment.token.paymentMethod.network =
-          event.payment.token.paymentMethod.network.toLowerCase();
+  describe('merchantVerification', () => {
+    it('should POST merchant verification request and validate response', () => {
+      const request = mockMerchantValidationRequest;
+      const response = mockMerchantVerificationDto;
 
-        await callback(btoa(JSON.stringify(event.payment.token)));
+      apiCallerServiceSpy.post.and.returnValue(of(response));
 
-        this.session.completePayment(window.ApplePaySession.STATUS_SUCCESS);
-      } catch (error) {
-        this.session.completePayment(window.ApplePaySession.STATUS_FAILURE);
-      }
-    };
+      service.merchantVerification(request).subscribe((result) => {
+        expect(result).toBe(response);
+      });
 
-    return this;
-  }
+      expect(apiCallerServiceSpy.post).toHaveBeenCalledWith(
+        `https://${window.location.hostname}/applepay/merchantverification`,
+        JSON.stringify(request),
+      );
+    });
+  });
+});
 
-  public build(): typeof window.ApplePaySession {
-    return this.session;
+
+
+service file 
+
+const merchantverificationPath = '/applepay/merchantverification';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class ApplePayApi {
+  private readonly _apiCallerService = inject(ApiCallerService);
+
+  public merchantVerification(
+    merchantValidationRequest: MerchantValidationRequest,
+  ): Observable<MerchantVerificationDTO> | never {
+    return this._apiCallerService
+      .post(
+        'https://' + window.location.hostname + merchantverificationPath,
+        JSON.stringify(merchantValidationRequest),
+      )
+      .pipe(
+        map((raw) => {
+          validateMerchantVerificationDTO(raw);
+          return raw;
+        }),
+      );
   }
 }
 
-and I have created this type
-declare global {
-  interface Window {
-    ApplePaySession: {
-      canMakePayments(): boolean;
-      completePayment(status: number): void;
-      begin(): void;
-      abort(): void;
+DTO file
 
-      onvalidatemerchant: (event: ApplePayValidateMerchantEvent) => void;
-      completeMerchantValidation(merchantSession: MerchantSession | undefined): void;
-      onpaymentauthorized: (event: ApplePayPaymentAuthorizationEvent) => void;
-      applePayCapabilities(merchantIdentifier: string): Promise<PaymentCredentialStatusResponse>;
-      oncancel: () => void;
+export type MerchantVerificationDTO = {
+  display_name: string;
+  domain_name: string;
+  epoch_timestamp: Date;
+  expires_at: Date;
+  merchant_identifier: string;
+  merchant_session_identifier: string;
+  nonce: string;
+  operational_analytics_identifier: string;
+  psp_id: string;
+  retries: number;
+  signature: string;
+};
 
-      STATUS_SUCCESS: number;
-      STATUS_FAILURE: number;
-    };
+
+validator file 
+
+export function validateMerchantVerificationDTO(
+  data: Record<string, unknown>,
+): asserts data is MerchantVerificationDTO {
+  if (!MERCHANT_VERIFICATION_SCHEMA.validate(data)) {
+    throw new InvalidFieldsError(MERCHANT_VERIFICATION_SCHEMA.getValidationErrors(data), data);
   }
 }
+
+schema file 
+
+export const MERCHANT_VERIFICATION_SCHEMA: Schema = objectType({
+  display_name: stringType(),
+  domain_name: stringType(),
+  epoch_timestamp: numberType(),
+  expires_at: numberType(),
+  merchant_identifier: stringType(),
+  merchant_session_identifier: stringType(),
+  nonce: stringType(),
+  operational_analytics_identifier: stringType(),
+  psp_id: stringType(),
+  retries: numberType(),
+  signature: stringType(),
+});
+
