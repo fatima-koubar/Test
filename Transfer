@@ -1,1 +1,83 @@
+I want to add a unit test in case I dont have a testCard 
+
+const MOBILE_DIALOG_CLASS = 'ei_dialog';
+const DESKTOP_DIALOG_CLASS = 'full-screen-dialog';
+const MOBILE_BREAKPOINT = '(max-width: 600px)';
+
+@Injectable()
+export class ApplePaySandboxAdapter extends ApplePayAdapterService {
+  private _callback: (() => void) | undefined;
+
+  private readonly _dialog = inject(MatDialog);
+  private readonly _applePayService = inject(ApplePayService);
+  private readonly _breakpointObserver = inject(BreakpointObserver);
+
+  setCallback(callback: () => void): void {
+    this._callback = callback;
+  }
+
+  async startTransaction(): Promise<void> {
+    const isMobile = this._breakpointObserver.isMatched(MOBILE_BREAKPOINT);
+    const dialogRef = this._dialog.open<ApplePayTestCardsComponent, unknown, TestCard | undefined>(
+      ApplePayTestCardsComponent,
+      {
+        panelClass: isMobile ? [MOBILE_DIALOG_CLASS, DESKTOP_DIALOG_CLASS] : MOBILE_DIALOG_CLASS,
+      },
+    );
+
+    const testCard = await firstValueFrom(dialogRef.afterClosed());
+    if (!testCard) {
+      if (this._callback) {
+        this._callback();
+      }
+      return;
+    }
+    this._applePayService.putToken(this.buildApplePayToken(testCard));
+  }
+}
+
+test file 
+
+describe('ApplePaySandboxAdapter', () => {
+  let adapter: ApplePaySandboxAdapter;
+  let dialogSpy: jasmine.SpyObj<MatDialog>;
+  let applePayServiceSpy: jasmine.SpyObj<ApplePayService>;
+  let breakpointObserverSpy: jasmine.SpyObj<BreakpointObserver>;
+  let dialogRefSpy: jasmine.SpyObj<MatDialogRef<any>>;
+
+  const mockTestCard: TestCard = {
+    id: 'visa-1',
+    account_number: '4111111111111111',
+    scheme: 'VISA',
+  };
+
+  beforeEach(() => {
+    dialogSpy = jasmine.createSpyObj('MatDialog', ['open']);
+    applePayServiceSpy = jasmine.createSpyObj('ApplePayService', ['putToken']);
+    breakpointObserverSpy = jasmine.createSpyObj('BreakpointObserver', ['isMatched']);
+    dialogRefSpy = jasmine.createSpyObj('MatDialogRef', ['afterClosed']);
+
+    TestBed.configureTestingModule({
+      providers: [
+        ApplePaySandboxAdapter,
+        { provide: MatDialog, useValue: dialogSpy },
+        { provide: ApplePayService, useValue: applePayServiceSpy },
+        { provide: BreakpointObserver, useValue: breakpointObserverSpy },
+      ],
+    });
+
+    adapter = TestBed.inject(ApplePaySandboxAdapter);
+  });
+
+  it('should call callBack if dialog returns no test card', async () => {
+    // given
+    breakpointObserverSpy.isMatched.and.returnValue(false);
+    dialogRefSpy.afterClosed.and.returnValue(of(undefined));
+    dialogSpy.open.and.returnValue(dialogRefSpy);
+
+    // then
+    
+  });
+
+});
 
