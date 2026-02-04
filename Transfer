@@ -1,108 +1,37 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { RedirectionComponent } from './redirection.component';
+import { RedirectService } from '../services/redirect.service';
+import { TranslateService } from '@ngx-translate/core';
+import { ViewContainerRef } from '@angular/core';
+import { PAYMENT_MEAN_TYPES } from '../constants/payment-mean-types';
 
-import { Component, InputSignal, OnInit, ViewContainerRef, WritableSignal, inject, input, signal } from '@angular/core';
-import { RedirectService } from '../../../core';
-import { DialogModalData, ModalComponent } from '../../../shared';
-import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { ExternalRedirection, PAYMENT_MEAN_TYPES } from '../../../domain';
+describe('RedirectionComponent', () => {
+  let component: RedirectionComponent;
+  let fixture: ComponentFixture<RedirectionComponent>;
+  let redirectService: jasmine.SpyObj<RedirectService>;
+  let translateService: jasmine.SpyObj<TranslateService>;
 
-@Component({
-  selector: 'pc-redirection',
-  templateUrl: './redirection.component.html',
-  standalone: true,
-  imports: [ModalComponent, TranslateModule],
-})
-export class RedirectionComponent implements OnInit {
-  modalData?: DialogModalData;
+  beforeEach(async () => {
+    redirectService = jasmine.createSpyObj('RedirectService', [
+      'setViewContainerRef',
+      'redirect',
+    ]);
 
-  readonly data: InputSignal<ExternalRedirection> = input.required<ExternalRedirection>();
-  readonly paymentSessionId: InputSignal<string> = input.required<string>();
-  readonly redirectToParent: InputSignal<boolean | undefined> = input<boolean>();
-  readonly redirectionDone: WritableSignal<boolean> = signal(false);
+    translateService = jasmine.createSpyObj('TranslateService', ['instant']);
+    translateService.instant.and.callFake((key: string) => key);
 
-  private readonly _viewContainerRef = inject(ViewContainerRef);
-  private readonly _redirectService = inject(RedirectService);
-  private readonly _translateService = inject(TranslateService);
+    await TestBed.configureTestingModule({
+      imports: [RedirectionComponent],
+      providers: [
+        { provide: RedirectService, useValue: redirectService },
+        { provide: TranslateService, useValue: translateService },
+      ],
+    }).compileComponents();
 
-  ngOnInit(): void {
-    const data = this.data();
+    fixture = TestBed.createComponent(RedirectionComponent);
+    component = fixture.componentInstance;
 
-    this._redirectService.setViewContainerRef(this._viewContainerRef);
-    if (!data.showModal) {
-      this.redirect(data.redirection);
-      return;
-    }
-    switch (data.submittedPaymentMean) {
-      case PAYMENT_MEAN_TYPES.PAYPAL:
-        this.modalData = {
-          title: this._translateService.instant(
-            'COMPONENTS.REDIRECTION.INFORMATION.REDIRECT_TO_PAYPAL',
-          ),
-          content: this._translateService.instant(
-            'COMPONENTS.REDIRECTION.INFORMATION.IN_CASE_NOTHING_HAPPENS',
-          ),
-          hasButton: true,
-          redirect: true,
-          buttonText: this._translateService.instant(
-            'COMPONENTS.REDIRECTION.ACTIONS.CONTINUE_TO_PAYPAL',
-          ),
-          buttonCallBack: () => {
-            this.redirect(data.redirection);
-          },
-        };
-        break;
-        case PAYMENT_MEAN_TYPES.WERO:
-        this.modalData = {
-          title: this._translateService.instant(
-            'COMPONENTS.REDIRECTION.INFORMATION.REDIRECT_TO_WERO',
-          ),
-          content: this._translateService.instant(
-            'COMPONENTS.REDIRECTION.INFORMATION.IN_CASE_NOTHING_HAPPENS',
-          ),
-          hasButton: true,
-          redirect: true,
-          buttonText: this._translateService.instant(
-            'COMPONENTS.REDIRECTION.ACTIONS.CONTINUE_TO_WERO',
-          ),
-          buttonCallBack: () => {
-            this.redirect(data.redirection);
-          },
-        };
-        break;
-      default: // Par défaut, la carte
-        this.modalData = {
-          title: this._translateService.instant(
-            'COMPONENTS.REDIRECTION.INFORMATION.REDIRECT_TO_BANK',
-          ),
-          content: this._translateService.instant(
-            'COMPONENTS.REDIRECTION.INFORMATION.IN_CASE_NOTHING_HAPPENS',
-          ),
-          hasButton: true,
-          redirect: true,
-          buttonText: this._translateService.instant('COMPONENTS.REDIRECTION.ACTIONS.CONTINUE'),
-          buttonCallBack: () => {
-            this.redirect(data.redirection);
-          },
-        };
-        break;
-    }
-  }
-
-  redirect(redirection: ExternalRedirection['redirection']): void {
-    if (this.redirectionDone()) {
-      return;
-    }
-    this.redirectionDone.set(true);
-    let map = new Map<string, string>();
-    if (redirection.data) {
-      for (let [key, value] of Array.from(Object.entries(redirection.data))) {
-        map.set(key, value);
-      }
-    }
-    this._redirectService.redirect(
-      redirection.method,
-      this.paymentSessionId(),
-      map,
-      this.redirectToParent(),
-    );
-  }
-}
+    // Required input signals
+    fixture.componentRef.setInput('paymentSessionId', 'session-123');
+    fixture.componentRef.setInput('redirectToParent', false);
+  });
