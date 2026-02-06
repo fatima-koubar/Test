@@ -1,163 +1,62 @@
+export class ApplePayFlowService {
+  async init(): Promise<void> {
+    const data = await this._applePayService.getCollectionSessionData();
+	...
+	}
+	startTransaction(): void {
+    const session = this._applePaySessionBuilderService.createSession(...)
+	...
+	}}
+	
+	
+	
+export class ApplePayService {
+	async getCollectionSessionData(): Promise<...> {
+	}
+}
 
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { RedirectionComponent } from './redirection.component';
-import { RedirectService } from '../services/redirect.service';
-import { TranslateService } from '@ngx-translate/core';
-import { PAYMENT_MEAN_TYPES } from '../constants/payment-mean-types';
+export class ApplePaySessionBuilderService {
+createSession(...) {
+return new ApplePaySessionBuilder(request, params.payload)
+	....
+}
+}
 
-describe('RedirectionComponent', () => {
-  let component: RedirectionComponent;
-  let fixture: ComponentFixture<RedirectionComponent>;
-  let redirectService: jasmine.SpyObj<RedirectService>;
-  let translateService: jasmine.SpyObj<TranslateService>;
+export class ApplePaySessionBuilder {
+constructor(request: ApplePayPaymentRequest, applePaySessionPayload: ApplePaySessionPayload) {
+this._applePaySession = new ApplePaySession(3, request);
+}
+}
 
-  beforeEach(async () => {
-    redirectService = jasmine.createSpyObj('RedirectService', [
-      'setViewContainerRef',
-      'redirect',
-    ]);
+class ApplePaySession {
+    constructor(version: number, paymentRequest: ApplePayPaymentRequest);
+  }
+  
+  export interface ApplePayPaymentRequest {
+  countryCode: string;
+  currencyCode: string;
+  merchantCapabilities: string[];
+  supportedNetworks: string[];
+  total: ApplePayLineItem;
+  recurringPaymentRequest?: ApplePayRecurringPaymentRequest;
+}
 
-    translateService = jasmine.createSpyObj('TranslateService', ['instant']);
-    translateService.instant.and.callFake((key: string) => key);
 
-    await TestBed.configureTestingModule({
-      imports: [RedirectionComponent],
-      providers: [
-        { provide: RedirectService, useValue: redirectService },
-        { provide: TranslateService, useValue: translateService },
-      ],
-    }).compileComponents();
+export interface ApplePayLineItem {
+    amount: string;
+    label?: string;
+    type?: string;
+    paymentTiming?: string;
+    recurringPaymentStartDate?: Date;
+    recurringPaymentEndDate?: Date;
+    recurringPaymentIntervalUnit?: string;
+    recurringPaymentIntervalCount?: number;
+};
 
-    fixture = TestBed.createComponent(RedirectionComponent);
-    component = fixture.componentInstance;
 
-    // required input signals
-    fixture.componentRef.setInput('paymentSessionId', 'session-123');
-    fixture.componentRef.setInput('redirectToParent', false);
-  });
-
-  const baseRedirection = {
-    method: 'POST',
-    data: { foo: 'bar' },
-  };
-
-  const createInputData = (overrides: Partial<any> = {}) => ({
-    showModal: true,
-    submittedPaymentMean: PAYMENT_MEAN_TYPES.PAYPAL,
-    redirection: baseRedirection,
-    ...overrides,
-  });
-
-  it('should create the component', () => {
-    fixture.componentRef.setInput('data', createInputData());
-    fixture.detectChanges();
-
-    expect(component).toBeTruthy();
-  });
-
-  it('should redirect immediately if showModal is false', () => {
-    fixture.componentRef.setInput(
-      'data',
-      createInputData({ showModal: false }),
-    );
-
-    fixture.detectChanges(); // triggers ngOnInit
-
-    expect(redirectService.setViewContainerRef).toHaveBeenCalled();
-    expect(redirectService.redirect).toHaveBeenCalledOnceWith(
-      'POST',
-      'session-123',
-      new Map([['foo', 'bar']]),
-      false,
-    );
-  });
-
-  it('should create PayPal modal data', () => {
-    fixture.componentRef.setInput('data', createInputData());
-
-    fixture.detectChanges();
-
-    expect(component.modalData).toBeDefined();
-    expect(component.modalData?.title).toBe(
-      'COMPONENTS.REDIRECTION.INFORMATION.REDIRECT_TO_PAYPAL',
-    );
-    expect(component.modalData?.hasButton).toBeTrue();
-    expect(component.modalData?.redirect).toBeTrue();
-  });
-
-  it('should create WERO modal data', () => {
-    fixture.componentRef.setInput(
-      'data',
-      createInputData({
-        submittedPaymentMean: PAYMENT_MEAN_TYPES.WERO,
-      }),
-    );
-
-    fixture.detectChanges();
-
-    expect(component.modalData?.title).toBe(
-      'COMPONENTS.REDIRECTION.INFORMATION.REDIRECT_TO_WERO',
-    );
-  });
-
-  it('should create default (bank) modal data', () => {
-    fixture.componentRef.setInput(
-      'data',
-      createInputData({
-        submittedPaymentMean: 'UNKNOWN',
-      }),
-    );
-
-    fixture.detectChanges();
-
-    expect(component.modalData?.title).toBe(
-      'COMPONENTS.REDIRECTION.INFORMATION.REDIRECT_TO_BANK',
-    );
-  });
-
-  it('should redirect when modal button callback is called', () => {
-    fixture.componentRef.setInput('data', createInputData());
-
-    fixture.detectChanges();
-
-    component.modalData!.buttonCallBack();
-
-    expect(redirectService.redirect).toHaveBeenCalledOnceWith(
-      'POST',
-      'session-123',
-      new Map([['foo', 'bar']]),
-      false,
-    );
-  });
-
-  it('should not redirect twice', () => {
-    fixture.componentRef.setInput(
-      'data',
-      createInputData({ showModal: false }),
-    );
-
-    fixture.detectChanges();
-    component.redirect(baseRedirection);
-
-    expect(redirectService.redirect).toHaveBeenCalledTimes(1);
-  });
-
-  it('should redirect with empty map when no redirection data is provided', () => {
-    fixture.componentRef.setInput(
-      'data',
-      createInputData({
-        showModal: false,
-        redirection: { method: 'GET' },
-      }),
-    );
-
-    fixture.detectChanges();
-
-    expect(redirectService.redirect).toHaveBeenCalledWith(
-      'GET',
-      'session-123',
-      new Map(),
-      false,
-    );
-  });
-});
+export interface ApplePayRecurringPaymentRequest {
+  paymentDescription: string;
+  regularBilling: ApplePayLineItem;
+  managementURL: string;
+  tokenNotificationURL?: string;
+}
