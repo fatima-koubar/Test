@@ -1,1 +1,13 @@
-test
+ngAfterViewInit(): void {
+  const observer = new MutationObserver(() => {
+    const wrapper = document.getElementById('wrapper');
+    if (wrapper) {
+      const apple = document.querySelector('pc-apple');
+      if (apple) apple.classList.add('inside-wrapper');
+      observer.disconnect();
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
