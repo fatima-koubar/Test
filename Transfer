@@ -1,13 +1,13 @@
-ngAfterViewInit(): void {
-  const observer = new MutationObserver(() => {
-    const wrapper = document.getElementById('wrapper');
-    if (wrapper) {
-      const apple = document.querySelector('pc-apple');
-      if (apple) apple.classList.add('inside-wrapper');
-      observer.disconnect();
-    }
-  });
-
-  observer.observe(document.body, { childList: true, subtree: true });
+I want to add a function that takes in parameter an id , and I want to filter the payment leans got from this object. So if I have id=apple-pay-id, I want to return the same object filtered with only applepay, etc..
+{"self":
+	{"href":"/payment-session/url"},
+	"paymentMeans":[
+		{"href":"/url/applepay",
+		"type":"applepay"},
+		{"href":"/url/card",
+		"type":"card"},
+		{"href":"/url/paypal",
+		"type":"paypal"
+		}
+	]
 }
-
