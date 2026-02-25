@@ -1,1 +1,59 @@
+function rgbaToHslAndAdjust(
+  rgba: string,
+  amount: number = 15 // % to lighten/darken
+): string {
 
+  const values = rgba.match(/[\d.]+/g);
+  if (!values || values.length < 3) return rgba;
+
+  let r = parseFloat(values[0]) / 255;
+  let g = parseFloat(values[1]) / 255;
+  let b = parseFloat(values[2]) / 255;
+  const a = values[3] !== undefined ? parseFloat(values[3]) : null;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      case b:
+        h = (r - g) / d + 4;
+        break;
+    }
+
+    h /= 6;
+  }
+
+  let lightness = l * 100;
+
+  // 🔥 Auto adjust based on brightness
+  if (lightness > 50) {
+    lightness -= amount; // darken light colors
+  } else {
+    lightness += amount; // lighten dark colors
+  }
+
+  // Clamp between 0–100
+  lightness = Math.max(0, Math.min(100, lightness));
+
+  const hue = Math.round(h * 360);
+  const saturation = Math.round(s * 100);
+  const finalLightness = Math.round(lightness);
+
+  if (a !== null) {
+    return `hsla(${hue}, ${saturation}%, ${finalLightness}%, ${a})`;
+  }
+
+  return `hsl(${hue}, ${saturation}%, ${finalLightness}%)`;
+}
