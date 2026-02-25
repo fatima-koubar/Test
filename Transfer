@@ -1,7 +1,1 @@
-@ViewChildren('btn', { read: ElementRef }) buttons!: QueryList<ElementRef<HTMLButtonElement>>;
 
-ngAfterViewInit() {
-  this.buttons.forEach(btnRef => {
-    this.renderer.setStyle(btnRef.nativeElement, '--btn-hover', this.hoverColor);
-  });
-}
