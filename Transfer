@@ -1,11 +1,1 @@
-readonly hoverColor: Signal<string> = computed(() => {
-    const button = this.paymentMeanButton().nativeElement;
-    const backgroundColor = window.getComputedStyle(button).backgroundColor;
-    return this._colorConversionService.rgbaToHslAndAdjust(backgroundColor, 15);
-  });
 
-  readonly hoverColorPicto: Signal<string> = computed(() => {
-    const button = this.paymentMeanButton().nativeElement;
-    const backgroundColor = window.getComputedStyle(button).backgroundColor;
-    return this._colorConversionService.rgbaToHslAndAdjust(backgroundColor, 10);
-  });
