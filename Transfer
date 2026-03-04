@@ -1,1 +1,18 @@
+can I do this ? I want that filtered be  this.getPaymentMeanByWrapperId(paymentMeanType) or this._paymentSessionStore.hateoasLinks()
 
+
+filtered = computed(() => {
+    window.parent.postMessage({ action: 'ready' }, '*');
+    return window.addEventListener('message', (event) => {
+      if (event.data.action === 'sendPaymentMeanType') {
+        console.log('component integration mono');
+        this._document.body.classList.add('mono');
+        const paymentMeanType = event.data.paymentMeanType;
+        this.getPaymentMeanByWrapperId(paymentMeanType);
+      } else if (event.data.action === 'componentIntegrationMulti') {
+        console.log('component integration mutli');
+        this._paymentSessionStore.hateoasLinks();
+        // console.log('filteresLinks:' + this._paymentSessionStore.hateoasLinks().paymentMeans);
+      }
+    });
+  });
