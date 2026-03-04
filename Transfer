@@ -1,18 +1,19 @@
-can I do this ? I want that filtered be  this.getPaymentMeanByWrapperId(paymentMeanType) or this._paymentSessionStore.hateoasLinks()
+I have a problem in my angular app, when I put 
+<pcapp-payment-mean
+        [paymentSessionId]="_paymentSessionStore.id()"
+        [data]="$any(_paymentSessionStore.data())"
+        [sandbox]="_paymentSessionStore.sandbox()"
+        [links]="isMulti() ? _paymentSessionStore.hateoasLinks() : filteredLinks()"
+        (nextStepEvent)="handleNextStep($event)"
+      ></pcapp-payment-mean>
 
+is not working when isMulti() is true , but when I put 
+<pcapp-payment-mean
+        [paymentSessionId]="_paymentSessionStore.id()"
+        [data]="$any(_paymentSessionStore.data())"
+        [sandbox]="_paymentSessionStore.sandbox()"
+        [links]="_paymentSessionStore.hateoasLinks()"
+        (nextStepEvent)="handleNextStep($event)"
+      ></pcapp-payment-mean>
 
-filtered = computed(() => {
-    window.parent.postMessage({ action: 'ready' }, '*');
-    return window.addEventListener('message', (event) => {
-      if (event.data.action === 'sendPaymentMeanType') {
-        console.log('component integration mono');
-        this._document.body.classList.add('mono');
-        const paymentMeanType = event.data.paymentMeanType;
-        this.getPaymentMeanByWrapperId(paymentMeanType);
-      } else if (event.data.action === 'componentIntegrationMulti') {
-        console.log('component integration mutli');
-        this._paymentSessionStore.hateoasLinks();
-        // console.log('filteresLinks:' + this._paymentSessionStore.hateoasLinks().paymentMeans);
-      }
-    });
-  });
+it is working
