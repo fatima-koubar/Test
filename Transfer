@@ -1,19 +1,24 @@
-I have a problem in my angular app, when I put 
-<pcapp-payment-mean
-        [paymentSessionId]="_paymentSessionStore.id()"
-        [data]="$any(_paymentSessionStore.data())"
-        [sandbox]="_paymentSessionStore.sandbox()"
-        [links]="isMulti() ? _paymentSessionStore.hateoasLinks() : filteredLinks()"
-        (nextStepEvent)="handleNextStep($event)"
-      ></pcapp-payment-mean>
-
-is not working when isMulti() is true , but when I put 
-<pcapp-payment-mean
-        [paymentSessionId]="_paymentSessionStore.id()"
-        [data]="$any(_paymentSessionStore.data())"
-        [sandbox]="_paymentSessionStore.sandbox()"
-        [links]="_paymentSessionStore.hateoasLinks()"
-        (nextStepEvent)="handleNextStep($event)"
-      ></pcapp-payment-mean>
-
-it is working
+PaymentSessionStore = signalStore(
+  { providedIn: 'root' },
+  withState<PaymentSessionStoreState>(() => ({
+    ...initialState,
+    integrationType: inject(PAYMENT_SESSION_CONTEXT),
+  })),
+  withMethods(
+    (
+      store,
+    ) => ({
+      setSession(session: Omit<PaymentSessionDTO, 'integration_type'>) {
+        patchState(store, {
+          hateoasLinks: Hateoas.create(session._links)
+        });
+      },
+      setPaymentMeans(hateoasPaymentMeans: Array<HateoasPaymentMean>) {
+        patchState(store, {
+          hateoasLinks: Hateoas.create({
+            ...store.hateoasLinks().asProps(),
+            payment_means: hateoasPaymentMeans,
+          }),
+        });
+      },
+...)
