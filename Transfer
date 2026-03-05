@@ -1,24 +1,17 @@
-PaymentSessionStore = signalStore(
-  { providedIn: 'root' },
-  withState<PaymentSessionStoreState>(() => ({
-    ...initialState,
-    integrationType: inject(PAYMENT_SESSION_CONTEXT),
-  })),
-  withMethods(
-    (
-      store,
-    ) => ({
-      setSession(session: Omit<PaymentSessionDTO, 'integration_type'>) {
-        patchState(store, {
-          hateoasLinks: Hateoas.create(session._links)
-        });
-      },
-      setPaymentMeans(hateoasPaymentMeans: Array<HateoasPaymentMean>) {
-        patchState(store, {
-          hateoasLinks: Hateoas.create({
-            ...store.hateoasLinks().asProps(),
-            payment_means: hateoasPaymentMeans,
-          }),
-        });
-      },
-...)
+async ngOnInit() {
+    if (this._integrationType == INTEGRATION_TYPES.PAYMENT_COMPONENT) {
+      window.parent.postMessage({ action: 'ready' }, '*');
+      window.addEventListener('message', async (event) => {
+        if (event.data.action === 'sendPaymentMeanType' && event.data.paymentMeanType) {
+          this.hateoasLinks.set(this.getPaymentMeanByWrapperId(event.data.paymentMeanType));
+          this._document.body.classList.add('mono');
+        } else {
+          this.hateoasLinks.set(this.links());
+        }
+        await this.initiate();
+      });
+    } else {
+      this.hateoasLinks.set(this.links());
+      await this.initiate();
+    }
+  }
