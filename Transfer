@@ -1,1 +1,23 @@
 
+initWebComponent()
+  {
+    var script = document.createElement('script');
+    if (this.paymentComponentType === 'Multi') {
+      script.text =`
+      const paymentComponents = MoneticoPaiement.PaymentComponents();
+      paymentComponents.initialize('${this.paymentSessionId}');
+      const paymentComponent =  paymentComponents.createComponent();
+      paymentComponent.generate('component-wrapper');
+      `;
+    } else {
+      script.text =`
+      const paymentComponents = MoneticoPaiement.PaymentComponents();
+      paymentComponents.initialize('${this.paymentSessionId}');
+      const paymentComponent =  paymentComponents.createComponent();
+      paymentComponent.generate('component-wrapper-card', 'applepay');
+      paymentComponent.generate('component-wrapper-card', 'card');
+      `;
+    }
+        
+    document.body.appendChild(script);
+  }
