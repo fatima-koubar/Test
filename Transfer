@@ -1,23 +1,30 @@
+<script>
+const items = [
+  ["component-apple", "apple"],
+  ["component-banana", "banana"],
+  ["component-ananas", "ananas"]
+];
 
-initWebComponent()
-  {
-    var script = document.createElement('script');
-    if (this.paymentComponentType === 'Multi') {
-      script.text =`
-      const paymentComponents = MoneticoPaiement.PaymentComponents();
-      paymentComponents.initialize('${this.paymentSessionId}');
-      const paymentComponent =  paymentComponents.createComponent();
-      paymentComponent.generate('component-wrapper');
-      `;
-    } else {
-      script.text =`
-      const paymentComponents = MoneticoPaiement.PaymentComponents();
-      paymentComponents.initialize('${this.paymentSessionId}');
-      const paymentComponent =  paymentComponents.createComponent();
-      paymentComponent.generate('component-wrapper-card', 'applepay');
-      paymentComponent.generate('component-wrapper-card', 'card');
-      `;
-    }
-        
-    document.body.appendChild(script);
+let index = 0;
+
+window.addEventListener("paymentGenerated", () => {
+  index++;
+
+  if (index < items.length) {
+    const [component, type] = items[index];
+    paymentComponent.generate(component, type);
   }
+});
+
+function startGeneration() {
+  const [component, type] = items[index];
+  paymentComponent.generate(component, type);
+}
+
+// Exemple : quand generate est terminé quelque part
+function onPaymentFinished() {
+  window.dispatchEvent(new Event("paymentGenerated"));
+}
+
+startGeneration();
+</script>
