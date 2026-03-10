@@ -44,3 +44,38 @@ initWebComponent()
         
     document.body.appendChild(script);
   }
+
+
+initWebComponent() {
+  const script = document.createElement('script');
+
+  script.text = `
+    const paymentComponents = MoneticoPaiement.PaymentComponents();
+    paymentComponents.initialize('${this.paymentSessionId}');
+    const paymentComponent = paymentComponents.createComponent();
+
+    const container = document.getElementById("div-web-composant-integration");
+
+    const createWrapper = (id, maxWidth) => {
+      const div = document.createElement("div");
+      div.id = id;
+      div.style.maxWidth = maxWidth;
+      div.style.display = "flex";
+      container.appendChild(div);
+      return id;
+    };
+
+    ${this.paymentComponentType === 'Multi' ? `
+      const componentId = createWrapper("component-wrapper", "600px");
+      paymentComponent.generate(componentId);
+    ` : `
+      const items = JSON.parse('${this.availablePaymentMeanTypes}');
+      items.forEach(type => {
+        const componentId = createWrapper('component-wrapper-' + type, "370px");
+        paymentComponent.generate(componentId, type);
+      });
+    `}
+  `;
+
+  document.body.appendChild(script);
+}
