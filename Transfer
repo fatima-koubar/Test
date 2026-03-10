@@ -1,1 +1,163 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { PaymentMeanComponent } from './payment-mean.component';
+import { DOCUMENT } from '@angular/common';
+import { PAYMENT_SESSION_CONTEXT } from '../../tokens/payment-session-context.token';
+import { INTEGRATION_TYPES } from '../../constants/integration-types';
 
+describe('PaymentMeanComponent', () => {
+  let component: PaymentMeanComponent;
+  let fixture: ComponentFixture<PaymentMeanComponent>;
+
+  const mockLinks: any = {
+    self: {
+      href: 'session-url',
+    },
+    paymentMeans: [
+      {
+        type: 'CARD',
+        href: 'card-url',
+      },
+      {
+        type: 'PAYPAL',
+        href: 'paypal-url',
+      },
+    ],
+  };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PaymentMeanComponent],
+      providers: [
+        { provide: PAYMENT_SESSION_CONTEXT, useValue: 'OTHER' },
+        { provide: DOCUMENT, useValue: document },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(PaymentMeanComponent);
+    component = fixture.componentInstance;
+
+    fixture.componentRef.setInput('links', mockLinks);
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  describe('ngOnInit', () => {
+    it('should initialize payment means when not in PAYMENT_COMPONENT mode', async () => {
+      await component.ngOnInit();
+
+      expect(component.paymentMeans().length).toBe(2);
+      expect(component.paymentSessionHref()).toBe('session-url');
+      expect(component.selectedPaymentMean()).toEqual(component.paymentMeans()[0]);
+      expect(component.isReady()).toBeTrue();
+    });
+
+    it('should select the first payment mean by default', async () => {
+      await component.ngOnInit();
+
+      const selected = component.selectedPaymentMean();
+
+      expect(selected?.type).toBe('CARD');
+    });
+  });
+
+  describe('handlePaymentMessage', () => {
+    it('should filter payment means based on message event', async () => {
+      spyOn<any>(component, 'initiate').and.callThrough();
+
+      const event = {
+        data: {
+          action: 'sendPaymentMeanType',
+          paymentMeanType: 'CARD',
+        },
+      } as MessageEvent;
+
+      await (component as any).handlePaymentMessage(event);
+
+      expect(component.hateoasLinks().paymentMeans.length).toBe(1);
+      expect(component.hateoasLinks().paymentMeans[0].type).toBe('CARD');
+    });
+
+    it('should add mono class to body when paymentMeanType is provided', async () => {
+      spyOn(document.body.classList, 'add');
+
+      const event = {
+        data: {
+          action: 'sendPaymentMeanType',
+          paymentMeanType: 'CARD',
+        },
+      } as MessageEvent;
+
+      await (component as any).handlePaymentMessage(event);
+
+      expect(document.body.classList.add).toHaveBeenCalledWith('mono');
+    });
+  });
+
+  describe('getPaymentMeanByWrapperId', () => {
+    it('should return filtered payment means', () => {
+      fixture.componentRef.setInput('links', mockLinks);
+
+      const result = (component as any).getPaymentMeanByWrapperId('PAYPAL');
+
+      expect(result.paymentMeans.length).toBe(1);
+      expect(result.paymentMeans[0].type).toBe('PAYPAL');
+    });
+
+    it('should return empty array when no type provided', () => {
+      const result = (component as any).getPaymentMeanByWrapperId(undefined);
+
+      expect(result.paymentMeans).toEqual([]);
+    });
+  });
+
+  describe('PAYMENT_COMPONENT integration', () => {
+    it('should register message listener and post ready message', async () => {
+      TestBed.resetTestingModule();
+
+      await TestBed.configureTestingModule({
+        imports: [PaymentMeanComponent],
+        providers: [
+          {
+            provide: PAYMENT_SESSION_CONTEXT,
+            useValue: INTEGRATION_TYPES.PAYMENT_COMPONENT,
+          },
+          { provide: DOCUMENT, useValue: document },
+        ],
+      }).compileComponents();
+
+      const fixture = TestBed.createComponent(PaymentMeanComponent);
+      const component = fixture.componentInstance;
+
+      spyOn(window.parent, 'postMessage');
+      spyOn(window, 'addEventListener');
+
+      fixture.componentRef.setInput('links', mockLinks);
+
+      await component.ngOnInit();
+
+      expect(window.parent.postMessage).toHaveBeenCalledWith(
+        { action: 'ready' },
+        '*',
+      );
+
+      expect(window.addEventListener).toHaveBeenCalledWith(
+        'message',
+        jasmine.any(Function),
+      );
+    });
+  });
+
+  describe('template rendering', () => {
+    it('should render payment mean items in template', async () => {
+      await component.ngOnInit();
+      fixture.detectChanges();
+
+      const elements =
+        fixture.nativeElement.querySelectorAll('.mp_acc_paymtmean_item');
+
+      expect(elements.length).toBe(2);
+    });
+  });
+});
