@@ -1,1 +1,52 @@
 
+I have this translation file and I have this sdktransationService and I want to add the paymentMeanType to iFrameTitle 
+
+export const IFRAME_SDK_KEYS = ['SDK.IFRAME.TITLE', 'SDK.IFRAMEPOPIN.TITLE'] as const;
+export type IFrameSdkKey = (typeof IFRAME_SDK_KEYS)[number];
+export type IFrameTranslations = Record<IFrameSdkKey, string>;
+
+export interface TranslationsPayload {
+  iFrameTitle: string;
+  iFramePopinTitle: string;
+}
+
+@Injectable({
+  providedIn: 'root',
+})
+export class SdkTranslationsService {
+  paymentMeanType: WritableSignal<string> = signal<string>('');
+
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly libraryTranslateService = inject(TranslateServiceGateway);
+  private readonly translateService = this.libraryTranslateService.translate;
+
+  init(): void {
+    window.addEventListener('message', (event) => {
+      if (event.data.action === 'sendPaymentMeanType') {
+        this.paymentMeanType.set(event.data.paymentMeanType);
+      }
+      this.translateService
+        .get([...IFRAME_SDK_KEYS])
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe((rawTranslations) => {
+          const translations = rawTranslations as IFrameTranslations;
+          const payload: TranslationsPayload = {
+            iFrameTitle: translations['SDK.IFRAME.TITLE'],
+            iFramePopinTitle: translations['SDK.IFRAMEPOPIN.TITLE'],
+          };
+
+          window.parent?.postMessage({ action: 'sdk-translations', translations: payload }, '*');
+        });
+    });
+  }
+}
+
+
+"SDK": {
+    "IFRAME": {
+      "TITLE": "Secure payment area {{paymentMeanType}}"
+    },
+    "IFRAMEPOPIN": {
+      "TITLE": "Secure redirection to a third-party site to continue the payment process"
+    }
+  }
