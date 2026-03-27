@@ -1,1 +1,137 @@
+<button 
+  (click)="deleteSelected()" 
+  [disabled]="selectedIds.length === 0">
+  Delete Selected
+</button>
+
+<table>
+  <thead>
+    <tr>
+      <th>
+        <input
+          type="checkbox"
+          (change)="toggleAll($event)"
+          [checked]="isAllSelected()"
+        />
+      </th>
+      <th>Name</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr *ngFor="let item of items">
+      <td>
+        <input
+          type="checkbox"
+          [checked]="selectedIds.includes(item.id)"
+          (change)="toggleSelection(item.id)"
+        />
+      </td>
+      <td>{{ item.name }}</td>
+    </tr>
+  </tbody>
+</table>
+
+
+
+import { Component, OnInit } from '@angular/core';
+import { forkJoin } from 'rxjs';
+import { MyService } from './my.service';
+
+@Component({
+  selector: 'app-my-table',
+  templateUrl: './my-table.component.html'
+})
+export class MyTableComponent implements OnInit {
+
+  items: any[] = [];
+  selectedIds: number[] = [];
+  loading = false;
+
+  constructor(private myService: MyService) {}
+
+  ngOnInit() {
+    this.loadData();
+  }
+
+  loadData() {
+    this.myService.getAll().subscribe(data => {
+      this.items = data;
+    });
+  }
+
+  // Toggle single checkbox
+  toggleSelection(id: number) {
+    const index = this.selectedIds.indexOf(id);
+    if (index > -1) {
+      this.selectedIds.splice(index, 1);
+    } else {
+      this.selectedIds.push(id);
+    }
+  }
+
+  // Select / unselect all
+  toggleAll(event: any) {
+    if (event.target.checked) {
+      this.selectedIds = this.items.map(item => item.id);
+    } else {
+      this.selectedIds = [];
+    }
+  }
+
+  // Check if all selected
+  isAllSelected(): boolean {
+    return this.items.length > 0 &&
+           this.selectedIds.length === this.items.length;
+  }
+
+  // 🚀 DELETE USING forkJoin
+  deleteSelected() {
+    if (this.selectedIds.length === 0) return;
+
+    if (!confirm('Are you sure you want to delete selected items?')) return;
+
+    this.loading = true;
+
+    const deleteCalls = this.selectedIds.map(id =>
+      this.myService.deleteById(id)
+    );
+
+    forkJoin(deleteCalls).subscribe({
+      next: () => {
+        // Remove deleted items from UI
+        this.items = this.items.filter(
+          item => !this.selectedIds.includes(item.id)
+        );
+
+        // Reset selection
+        this.selectedIds = [];
+        this.loading = false;
+      },
+      error: (err) => {
+        console.error('Error deleting items:', err);
+        this.loading = false;
+      }
+    });
+  }
+}
+
+import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+
+@Injectable({ providedIn: 'root' })
+export class MyService {
+
+  private baseUrl = 'https://api.example.com/items';
+
+  constructor(private http: HttpClient) {}
+
+  getAll() {
+    return this.http.get<any[]>(this.baseUrl);
+  }
+
+  deleteById(id: number) {
+    return this.http.delete(`${this.baseUrl}/${id}`);
+  }
+}
 
