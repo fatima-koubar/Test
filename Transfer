@@ -1,137 +1,63 @@
-<button 
-  (click)="deleteSelected()" 
-  [disabled]="selectedIds.length === 0">
-  Delete Selected
+
+I have a button export that exports all the data from the table. I want to change the code to be able to export only selected rows
+
+I have these files: 
+file html that containes the component export:
+<app-export [getData]="items"></app-export>
+
+file html of export component
+<button mat-icon-button (click)=onExport()>
+    <mat-icon aria-hidden="false" fontIcon="download"></mat-icon>
 </button>
+<a id="downloadAnchorElem" [download]="fileUrl"></a>
 
-<table>
-  <thead>
-    <tr>
-      <th>
-        <input
-          type="checkbox"
-          (change)="toggleAll($event)"
-          [checked]="isAllSelected()"
-        />
-      </th>
-      <th>Name</th>
-    </tr>
-  </thead>
+file ts of export component
+import { CommonModule } from '@angular/common';
+import { Component, Input } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { Subscription } from 'rxjs';
+import { MatIconModule } from '@angular/material/icon';
 
-  <tbody>
-    <tr *ngFor="let item of items">
-      <td>
-        <input
-          type="checkbox"
-          [checked]="selectedIds.includes(item.id)"
-          (change)="toggleSelection(item.id)"
-        />
-      </td>
-      <td>{{ item.name }}</td>
-    </tr>
-  </tbody>
-</table>
-
-
-
-import { Component, OnInit } from '@angular/core';
-import { forkJoin } from 'rxjs';
-import { MyService } from './my.service';
+import { MatInputModule } from '@angular/material/input';
 
 @Component({
-  selector: 'app-my-table',
-  templateUrl: './my-table.component.html'
+  selector: 'app-export',
+  standalone: true,
+  imports: [CommonModule, MatButtonModule,MatIconModule,MatInputModule],
+  templateUrl: './export.component.html',
+  styleUrls: ['./export.component.css']
 })
-export class MyTableComponent implements OnInit {
 
-  items: any[] = [];
-  selectedIds: number[] = [];
-  loading = false;
+export class ExportComponent{
 
-  constructor(private myService: MyService) {}
+  @Input()
+  getData: any[] = [];
 
-  ngOnInit() {
-    this.loadData();
-  }
-
-  loadData() {
-    this.myService.getAll().subscribe(data => {
-      this.items = data;
-    });
-  }
-
-  // Toggle single checkbox
-  toggleSelection(id: number) {
-    const index = this.selectedIds.indexOf(id);
-    if (index > -1) {
-      this.selectedIds.splice(index, 1);
-    } else {
-      this.selectedIds.push(id);
+  subscription$: Subscription | undefined;
+  fileUrl= "myData.json";
+  
+  ngOnDestroy(): void {
+    if(this.subscription$)
+    {
+      this.subscription$.unsubscribe();
     }
   }
+   
+  onExport() {
 
-  // Select / unselect all
-  toggleAll(event: any) {
-    if (event.target.checked) {
-      this.selectedIds = this.items.map(item => item.id);
-    } else {
-      this.selectedIds = [];
-    }
-  }
+    if(this.getData.length > 0) {
 
-  // Check if all selected
-  isAllSelected(): boolean {
-    return this.items.length > 0 &&
-           this.selectedIds.length === this.items.length;
-  }
+      const jsonContent = JSON.stringify(this.getData);
 
-  // 🚀 DELETE USING forkJoin
-  deleteSelected() {
-    if (this.selectedIds.length === 0) return;
+      var jsonFileContent = "data:text/json;charset=utf-8," + encodeURIComponent(jsonContent);
 
-    if (!confirm('Are you sure you want to delete selected items?')) return;
-
-    this.loading = true;
-
-    const deleteCalls = this.selectedIds.map(id =>
-      this.myService.deleteById(id)
-    );
-
-    forkJoin(deleteCalls).subscribe({
-      next: () => {
-        // Remove deleted items from UI
-        this.items = this.items.filter(
-          item => !this.selectedIds.includes(item.id)
-        );
-
-        // Reset selection
-        this.selectedIds = [];
-        this.loading = false;
-      },
-      error: (err) => {
-        console.error('Error deleting items:', err);
-        this.loading = false;
+      var dlAnchorElem = document.getElementById('downloadAnchorElem');
+      if(dlAnchorElem && jsonFileContent != null)
+      {
+        dlAnchorElem.setAttribute("href", jsonFileContent);
+        dlAnchorElem.click();
       }
-    });
+   
+    }
   }
 }
-
-import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-
-@Injectable({ providedIn: 'root' })
-export class MyService {
-
-  private baseUrl = 'https://api.example.com/items';
-
-  constructor(private http: HttpClient) {}
-
-  getAll() {
-    return this.http.get<any[]>(this.baseUrl);
-  }
-
-  deleteById(id: number) {
-    return this.http.delete(`${this.baseUrl}/${id}`);
-  }
-}
-
