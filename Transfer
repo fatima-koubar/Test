@@ -1,63 +1,21 @@
+ public List<Pos> GetPosFiltered(Dictionary<string, string> filters)  
+ {
+     PosDAO posDAO = new();
+     List<Pos> posList = new List<Pos>();
 
-I have a button export that exports all the data from the table. I want to change the code to be able to export only selected rows
+     List<PosDb> posDTOList = posDAO._context.Pos
+     .Include(p => p.environment)
+     .Include(p => p.infrastructure)
+     .Include(p => p.language)
+     .Include(p => p.payment_method)
+     .Where(p => p.persoId == filters["persoId"] && p.idEnvironment.ToString() == filters["environment"] && p.idInfrastructure.ToString() == filters["infrastructure"] 
+     && p.idPaymentMethod.ToString() == filters["paymentMethod"])
+     .ToList();
 
-I have these files: 
-file html that containes the component export:
-<app-export [getData]="items"></app-export>
+     posDTOList.ForEach(pos => {
+         Pos p = (Pos)pos;
+         posList.Add(p);
+     });
 
-file html of export component
-<button mat-icon-button (click)=onExport()>
-    <mat-icon aria-hidden="false" fontIcon="download"></mat-icon>
-</button>
-<a id="downloadAnchorElem" [download]="fileUrl"></a>
-
-file ts of export component
-import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { Subscription } from 'rxjs';
-import { MatIconModule } from '@angular/material/icon';
-
-import { MatInputModule } from '@angular/material/input';
-
-@Component({
-  selector: 'app-export',
-  standalone: true,
-  imports: [CommonModule, MatButtonModule,MatIconModule,MatInputModule],
-  templateUrl: './export.component.html',
-  styleUrls: ['./export.component.css']
-})
-
-export class ExportComponent{
-
-  @Input()
-  getData: any[] = [];
-
-  subscription$: Subscription | undefined;
-  fileUrl= "myData.json";
-  
-  ngOnDestroy(): void {
-    if(this.subscription$)
-    {
-      this.subscription$.unsubscribe();
-    }
-  }
-   
-  onExport() {
-
-    if(this.getData.length > 0) {
-
-      const jsonContent = JSON.stringify(this.getData);
-
-      var jsonFileContent = "data:text/json;charset=utf-8," + encodeURIComponent(jsonContent);
-
-      var dlAnchorElem = document.getElementById('downloadAnchorElem');
-      if(dlAnchorElem && jsonFileContent != null)
-      {
-        dlAnchorElem.setAttribute("href", jsonFileContent);
-        dlAnchorElem.click();
-      }
-   
-    }
-  }
-}
+     return posList;
+ }
