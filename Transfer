@@ -1,68 +1,23 @@
- public List<Pos> GetPosFiltered(Dictionary<string, string> filters)  
- {
-     PosDAO posDAO = new();
-     List<Pos> posList = new List<Pos>();
-
-     List<PosDb> posDTOList = posDAO._context.Pos
-     .Include(p => p.environment)
-     .Include(p => p.infrastructure)
-     .Include(p => p.language)
-     .Include(p => p.payment_method)
-     .Where(p => p.persoId == filters["persoId"] && p.idEnvironment.ToString() == filters["environment"] && p.idInfrastructure.ToString() == filters["infrastructure"] 
-     && p.idPaymentMethod.ToString() == filters["paymentMethod"])
-     .ToList();
-
-     posDTOList.ForEach(pos => {
-         Pos p = (Pos)pos;
-         posList.Add(p);
-     });
-
-     return posList;
- }
-
-
-
-
-public List<Pos> GetPosFiltered(
-    List<int> environments,
+[HttpGet("filterBy")]
+public ActionResult<List<Pos>> GetFilteredPosBy([FromQuery]
+    string persoId,
     List<int> infrastructures,
-    List<int> paymentMethods,
-    string persoId)
+    List<int> environments,
+    List<int> paymentMethods)
 {
     PosDAO posDAO = new();
-    
-    var query = posDAO._context.Pos
-        .Include(p => p.environment)
-        .Include(p => p.infrastructure)
-        .Include(p => p.language)
-        .Include(p => p.payment_method)
-        .AsQueryable();
+    List<Pos> posList = posDAO.GetPosFilteredBy(
+        persoId,
+        infrastructures,
+        environments,
+        paymentMethods);
 
-    // Filtre persoId (obligatoire)
-    if (!string.IsNullOrEmpty(persoId))
+    if (posList.Count < 0)
     {
-        query = query.Where(p => p.persoId == persoId);
+        return NotFound();
     }
-
-    // Filtre Environment (liste)
-    if (environments != null && environments.Any())
+    else
     {
-        query = query.Where(p => environments.Contains(p.idEnvironment));
+        return Ok(posList);
     }
-
-    // Filtre Infrastructure (liste)
-    if (infrastructures != null && infrastructures.Any())
-    {
-        query = query.Where(p => infrastructures.Contains(p.idInfrastructure));
-    }
-
-    // Filtre PaymentMethod (liste)
-    if (paymentMethods != null && paymentMethods.Any())
-    {
-        query = query.Where(p => paymentMethods.Contains(p.idPaymentMethod));
-    }
-
-    return query
-        .Select(pos => (Pos)pos)
-        .ToList();
 }
