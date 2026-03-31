@@ -21,3 +21,27 @@ public ActionResult<List<Pos>> GetFilteredPosBy([FromQuery]
         return Ok(posList);
     }
 }
+
+
+[HttpGet("filterBy")]
+public ActionResult<List<Pos>> GetFilteredPosBy(
+    [FromQuery] string persoId,
+    [FromQuery] List<int>? infrastructures,
+    [FromQuery] List<int>? environments,
+    [FromQuery] List<int>? paymentMethods)
+{
+    PosDAO posDAO = new();
+
+    var posList = posDAO.GetPosFilteredBy(
+        persoId,
+        infrastructures,
+        environments,
+        paymentMethods);
+
+    if (posList == null || !posList.Any())
+    {
+        return NotFound();
+    }
+
+    return Ok(posList);
+}
