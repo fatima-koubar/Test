@@ -82,3 +82,14 @@ le pb que dans le DAO ça me donne une erreur:
 
 Newtonsoft.Json.JsonSerializationException: 'Error converting value 1 to type 'System.Collections.Generic.List`1[System.Int32]'. Path '', line 1, position 1.'
 InnerException: ArgumentException: Could not cast or convert from System.Int64 to System.Collections.Generic.List`1[System.Int32].
+var infrastructures = !string.IsNullOrEmpty(infrastructure)
+    ? infrastructure.Split(',').Select(int.Parse).ToList()
+    : new List<int>();
+
+var environments = !string.IsNullOrEmpty(environment)
+    ? environment.Split(',').Select(int.Parse).ToList()
+    : new List<int>();
+
+var paymentMethods = !string.IsNullOrEmpty(paymentMethod)
+    ? paymentMethod.Split(',').Select(int.Parse).ToList()
+    : new List<int>();
