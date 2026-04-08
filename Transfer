@@ -1,1 +1,67 @@
 
+ public class PosDb
+     {
+         [Key]
+         public int? id { get; set; }
+         public string? posId { get; set; }
+         public string persoId { get; set; }
+         public string? paymentSettings { get; set; }
+
+         public Language? language { get; set; }
+         public int idLanguage { get; set; }
+         public PaymentMethod? payment_method { get; set; }
+         public int idPaymentMethod { get; set; }
+
+         public Environnement? environment { get; set; }
+         public int idEnvironment { get; set; }
+         public Infrastructure? infrastructure { get; set; }
+         public int idInfrastructure { get; set; }
+         public string? mac { get; set; }
+         public string? tags { get; set; }
+
+         public static explicit operator PosDb(Pos pos)
+         {
+             string tagsString = string.Join(';', pos.tags);
+             Console.WriteLine("EH OH");
+             Console.WriteLine(tagsString);
+             return new PosDb
+             {
+                 posId = pos.posId,
+                 persoId = pos.persoId,
+                 paymentSettings = pos.paymentSettings,
+                 idPaymentMethod = (int)pos.idPaymentMethod,
+                 idLanguage = (int)pos.idLanguage,
+                 idEnvironment = (int)pos.idEnvironment,
+                 idInfrastructure = (int)pos.idInfrastructure,
+                 mac = pos.mac,
+                 tags = tagsString
+             };
+         }
+ }
+
+
+
+public List<Pos> GetAllPos(string persoId) 
+{
+    PosDAO posDAO = new ();
+
+    List<PosDb> posDTOList = posDAO._context.Pos
+            .Include(p => p.environment)
+            .Include(p => p.infrastructure)
+            .Include(p => p.language)
+            .Include(p => p.payment_method)
+            .Where(p => p.persoId == persoId)
+            .ToList();
+
+    List<Pos> posList = new List<Pos>();
+
+    posDTOList.ForEach(pos =>
+    {
+        Pos p = (Pos)pos;
+        posList.Add(p);
+    });
+
+    return posList;
+}
+
+
