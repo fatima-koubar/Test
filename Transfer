@@ -1,67 +1,65 @@
+addPos():void {
 
- public class PosDb
-     {
-         [Key]
-         public int? id { get; set; }
-         public string? posId { get; set; }
-         public string persoId { get; set; }
-         public string? paymentSettings { get; set; }
+    let data = {
+      enums: this.enumsList
+    }
 
-         public Language? language { get; set; }
-         public int idLanguage { get; set; }
-         public PaymentMethod? payment_method { get; set; }
-         public int idPaymentMethod { get; set; }
-
-         public Environnement? environment { get; set; }
-         public int idEnvironment { get; set; }
-         public Infrastructure? infrastructure { get; set; }
-         public int idInfrastructure { get; set; }
-         public string? mac { get; set; }
-         public string? tags { get; set; }
-
-         public static explicit operator PosDb(Pos pos)
-         {
-             string tagsString = string.Join(';', pos.tags);
-             Console.WriteLine("EH OH");
-             Console.WriteLine(tagsString);
-             return new PosDb
-             {
-                 posId = pos.posId,
-                 persoId = pos.persoId,
-                 paymentSettings = pos.paymentSettings,
-                 idPaymentMethod = (int)pos.idPaymentMethod,
-                 idLanguage = (int)pos.idLanguage,
-                 idEnvironment = (int)pos.idEnvironment,
-                 idInfrastructure = (int)pos.idInfrastructure,
-                 mac = pos.mac,
-                 tags = tagsString
-             };
-         }
- }
-
-
-
-public List<Pos> GetAllPos(string persoId) 
-{
-    PosDAO posDAO = new ();
-
-    List<PosDb> posDTOList = posDAO._context.Pos
-            .Include(p => p.environment)
-            .Include(p => p.infrastructure)
-            .Include(p => p.language)
-            .Include(p => p.payment_method)
-            .Where(p => p.persoId == persoId)
-            .ToList();
-
-    List<Pos> posList = new List<Pos>();
-
-    posDTOList.ForEach(pos =>
-    {
-        Pos p = (Pos)pos;
-        posList.Add(p);
+    const dialogRef = this.dialog.open(EditPosComponent, {
+      enterAnimationDuration: '0ms',
+      exitAnimationDuration: '0ms',
+      data: data
     });
 
-    return posList;
-}
+    dialogRef.afterClosed().subscribe((result) => {
+      if(result && result.action == 'add')
+      {
+        if(!this.isPosExist(result.pos))
+        {
+          result.pos.persoId = this.persoId;
+          result.pos.idPaymentMethod = result.pos.paymentMethod;
+          result.pos.idLanguage = 4; // FR by default
+          result.pos.id = 0;
 
+          if (result.pos.infrastructure === 1) {
+            this.infrastructure = [1, 2]; // DEV(VM) or SIT (duplicate POS)
+          } else if (result.pos.infrastructure === 4) {
+            this.infrastructure = [4, 5]; // PROD1(LIL) or PROD1SEC(SXB) (duplicate POS)
+          } else {
+            this.infrastructure = [result.pos.infrastructure];
+          }
+
+          this.infrastructure.forEach((i) => {
+            result.pos.idInfrastructure = i;
+
+              this.environments.forEach((e) => { // duplicate POS for live and sandbox
+                result.pos.idEnvironment = e;
+            
+
+                this.posExtService.postPos(result.pos).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+                  this.updateData();
+                });
+              })
+          })
+        } else {
+          this.showPOSAlreadyExistSnackBar();
+        }
+      }
+    });
+  } 
+
+
+  isPosExist(pos: POS): Boolean
+  {
+    let isPosExist = false;
+    this.posListData.forEach(p => {
+      if(p.id == pos.id || 
+        (p.infrastructure === pos.infrastructure && p.posId === pos.posId) ||
+        (p.idInfrastructure === pos.infrastructure && p.posId === pos.posId)
+      )
+      {
+        isPosExist =  true;
+      }
+    });    
+    return isPosExist;
+  }
 
