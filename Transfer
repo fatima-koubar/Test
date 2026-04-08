@@ -1,65 +1,71 @@
-addPos():void {
+addPos(): void {
+  const dialogRef = this.dialog.open(EditPosComponent, {
+    enterAnimationDuration: '0ms',
+    exitAnimationDuration: '0ms',
+    data: { enums: this.enumsList }
+  });
 
-    let data = {
-      enums: this.enumsList
-    }
+  dialogRef.afterClosed()
+    .pipe(takeUntilDestroyed(this.destroyRef))
+    .subscribe(result => {
+      if (!result || result.action !== 'add') return;
 
-    const dialogRef = this.dialog.open(EditPosComponent, {
-      enterAnimationDuration: '0ms',
-      exitAnimationDuration: '0ms',
-      data: data
-    });
+      const basePos = {
+        ...result.pos,
+        persoId: this.persoId,
+        idPaymentMethod: result.pos.paymentMethod,
+        idLanguage: 4,
+        id: 0
+      };
 
-    dialogRef.afterClosed().subscribe((result) => {
-      if(result && result.action == 'add')
-      {
-        if(!this.isPosExist(result.pos))
-        {
-          result.pos.persoId = this.persoId;
-          result.pos.idPaymentMethod = result.pos.paymentMethod;
-          result.pos.idLanguage = 4; // FR by default
-          result.pos.id = 0;
+      const infrastructures = this.getInfrastructures(basePos.infrastructure);
 
-          if (result.pos.infrastructure === 1) {
-            this.infrastructure = [1, 2]; // DEV(VM) or SIT (duplicate POS)
-          } else if (result.pos.infrastructure === 4) {
-            this.infrastructure = [4, 5]; // PROD1(LIL) or PROD1SEC(SXB) (duplicate POS)
-          } else {
-            this.infrastructure = [result.pos.infrastructure];
-          }
+      let alreadyExists = false;
 
-          this.infrastructure.forEach((i) => {
-            result.pos.idInfrastructure = i;
+      const requests = infrastructures.flatMap(infra => {
 
-              this.environments.forEach((e) => { // duplicate POS for live and sandbox
-                result.pos.idEnvironment = e;
-            
-
-                this.posExtService.postPos(result.pos).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
-                  this.updateData();
-                });
-              })
-          })
-        } else {
-          this.showPOSAlreadyExistSnackBar();
+        if (this.isPosExist(basePos, infra)) {
+          alreadyExists = true;
+          return []; // skip
         }
+
+        return this.environments.map(env => ({
+          ...basePos,
+          idInfrastructure: infra,
+          idEnvironment: env
+        }));
+      });
+
+      if (alreadyExists) {
+        this.showPOSAlreadyExistSnackBar();
       }
+
+      if (requests.length === 0) return;
+
+      from(requests).pipe(
+        mergeMap(pos =>
+          this.posExtService.postPos(pos)
+        ),
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe({
+        next: () => {},
+        complete: () => this.updateData()
+      });
     });
-  } 
+}
 
 
-  isPosExist(pos: POS): Boolean
-  {
-    let isPosExist = false;
-    this.posListData.forEach(p => {
-      if(p.id == pos.id || 
-        (p.infrastructure === pos.infrastructure && p.posId === pos.posId) ||
-        (p.idInfrastructure === pos.infrastructure && p.posId === pos.posId)
-      )
-      {
-        isPosExist =  true;
-      }
-    });    
-    return isPosExist;
+getInfrastructures(infra: number): number[] {
+  switch (infra) {
+    case 1: return [1, 2]; // DEV + SIT
+    case 4: return [4, 5]; // PROD + SEC
+    default: return [infra];
   }
+}
 
+isPosExist(pos: POS, infrastructure: number): boolean {
+  return this.posListData.some(p =>
+    p.posId === pos.posId &&
+    (p.idInfrastructure === infrastructure || p.infrastructure === infrastructure)
+  );
+}
