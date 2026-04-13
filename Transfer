@@ -1,1 +1,377 @@
 
+I have this ts file, I have a service called PosListService. I want to refactor this code, and put what I can in the service. 
+import { Component, OnInit, DestroyRef, inject, EventEmitter, Output, signal, WritableSignal, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { from, mergeMap, take } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import { POS } from '../../../core/model/pos';
+import { PosExtendedService } from '../../service/pos.service';
+import { ExportComponent } from '../../../export/components/export/export.component';
+import { EditPosComponent } from '../edit-pos/edit-pos.component';
+import { ListComponent } from '../../../shared/list/list.component';
+import { ImportDialogComponent } from '../../../import/components/import-dialog/import-dialog.component';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ENUMS } from '../../../core/model/enums';
+import { EnumService } from '../../../core/services/enum-service/enum.service';
+import { PosService } from '../../../core/services/pos/pos.service';
+import { SearchPosComponent } from '../search-pos/search-pos.component';
+import { FilterPosComponent } from '../filter-pos/filter-pos.component';
+import { PosListService } from '../../service/pos-list.service';
+
+@Component({
+  selector: 'app-pos-list',
+  standalone: true,
+  imports: [
+    CommonModule, 
+    ListComponent, 
+    EditPosComponent, 
+    ExportComponent, 
+    MatButtonModule, 
+    MatIconModule, 
+    SearchPosComponent, 
+    MatTooltipModule
+  ],
+  templateUrl: './pos-list.component.html',
+  styleUrls: ['./pos-list.component.scss']
+})
+
+export class PosListComponent implements OnInit{
+  @Output() onAdd = new EventEmitter<any>();
+  @ViewChild(SearchPosComponent) searchComponent!: SearchPosComponent;
+
+  
+  posListData: WritableSignal<POS[]> = signal<POS[]>([]);
+  persoId: string = "";
+  
+  columns: { columnsName: string; propName: string; }[] = [ 
+    {columnsName:'Point de vente', propName: 'posId'},
+    {columnsName:'Societe', propName: 'paymentSettings'},
+    {columnsName:'Mode de paiement', propName: 'paymentMethod'},
+    {columnsName:'Environnement', propName: 'environment'},
+    {columnsName:'Infrastructure', propName: 'infrastructure'},
+    {columnsName:'MAC', propName: 'mac'},
+    {columnsName:'Tags', propName: 'tags'}
+  ];
+
+  enumsList: WritableSignal<ENUMS> = signal<{
+    infrastructures: [],
+    environments: [],
+    payment_methods: [],
+    languages: []
+  }>({
+    infrastructures: [],
+    environments: [],
+    payment_methods: [],
+    languages: []
+  });
+
+  selectedFilters = signal<{
+      payment: number[],
+      infrastructure: number[],
+      environment: number[]
+  }>({
+      payment: [],
+      infrastructure: [],
+      environment: []
+  });
+
+  getData: any[] = [];
+
+  searchedItems: WritableSignal<POS[]> = signal<POS[]>([]);
+  resetSearchTrigger: WritableSignal<number> = signal<number>(0);
+  infrastructureFilter: WritableSignal<number> = signal<number>(0);
+  environmentFilter: WritableSignal<number> = signal<number>(0);
+  paymentMethodFilter: WritableSignal<number> = signal<number>(0);
+  allFiltersLength: WritableSignal<number> = signal<number>(0);
+
+  fileUrl= "myDuplicatedData.json";
+
+  private readonly _posExtService = inject(PosExtendedService);
+  private readonly _posService = inject(PosService);
+  private readonly _enumService = inject(EnumService);
+  private readonly _dialog = inject(MatDialog);
+  private readonly _destroyRef = inject(DestroyRef);
+  private readonly _posListService = inject(PosListService);
+
+  ngOnInit(): void {
+    this._posService.getMemoId().subscribe((res: any) => {
+      this.persoId = res.persoId;
+      this.getFormEnum();
+      this.updateData();
+     })
+  }
+
+  onSearchChanged(event: { searchText: string, filterBy: 'posId' | 'tag'}): void {
+    const text = event.searchText.toLowerCase();
+
+    if (!text) {
+      this.searchedItems.set([...this.posListData()]);
+      return;
+    }
+
+    this.searchedItems.set(this.posListData().filter(item => {
+      if (event.filterBy === 'posId') {
+        return item.posId.toLowerCase().includes(text);
+      } 
+      if (event.filterBy === 'tag') {
+        return item.tags.some((tag: any) =>
+          tag.toLowerCase().includes(text)
+        );
+      }
+      return false;
+    }));
+    this.clearFilters();
+  }
+
+  updateData(): void {
+    this._posExtService.getPOS({persoId: this.persoId}).pipe(takeUntilDestroyed(this._destroyRef)).subscribe(posData => {
+      this.posListData.set(posData);
+    });
+    this.resetSearchTrigger.update(value => value + 1);
+    this.searchedItems.set([...this.posListData()]);
+    this.clearFilters();
+  }
+
+  modifyPos(posSelected:any): void {
+    const oldPos = posSelected;
+
+    oldPos.idPaymentMethod = this.enumsList().payment_methods?.find(pm => pm.value == oldPos.paymentMethod)?.id;
+    oldPos.idLanguage = 4;
+    oldPos.idInfrastructure = this.enumsList().infrastructures?.find(i => i.value == oldPos.infrastructure)?.id;
+    oldPos.idEnvironment = this.enumsList().environments?.find(e => e.value == oldPos.environment)?.id;
+
+    const dialogRef = this._dialog.open(EditPosComponent, {
+      enterAnimationDuration: '0ms',
+      exitAnimationDuration: '0ms',
+      data: {
+        pos: oldPos,
+        enums: this.enumsList()
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if(result && result.action == 'modify')
+      {
+        result.newpos.idPaymentMethod = result.newpos.paymentMethod;
+        result.newpos.idLanguage = 4;
+        result.newpos.idInfrastructure = result.newpos.infrastructure;
+        result.newpos.idEnvironment = result.newpos.environment;
+
+        result.newpos.paymentMethod = this.enumsList().payment_methods?.find(pm => pm.id == result.newpos.idPaymentMethod)?.value;
+        result.newpos.language = 4;
+        result.newpos.infrastructure = this.enumsList().infrastructures?.find(pm => pm.id == result.newpos.idInfrastructure)?.value;
+        result.newpos.environment = this.enumsList().environments?.find(pm => pm.id == result.newpos.idEnvironment)?.value;
+
+        result.newpos.persoId = this.persoId;
+        this._posExtService.patchPos(posSelected.id.toString(), result.newpos).subscribe(
+          ()=> { 
+            this.updateData()
+          }
+        );
+      }
+    });
+  }
+
+  addPos(): void {
+    const dialogRef = this._dialog.open(EditPosComponent, {
+      enterAnimationDuration: '0ms',
+      exitAnimationDuration: '0ms',
+      data: { enums: this.enumsList() }
+    });
+
+    dialogRef.afterClosed()
+      .pipe(takeUntilDestroyed(this._destroyRef))
+      .subscribe(result => {
+        if (!result || result.action !== 'add') return;
+
+        const basePos = {
+          ...result.pos,
+          persoId: this.persoId,
+          idPaymentMethod: result.pos.paymentMethod,
+          idLanguage: 4,
+          id: 0
+        };
+        const infrastructures = this._posListService.getInfrastructures(basePos.infrastructure);
+        const environments = [1, 2];
+
+        let alreadyExists = false;
+
+        const requests = infrastructures.flatMap(infra => {
+
+          if (this._posListService.isPosExist(this.posListData(), basePos, infra)) {
+            alreadyExists = true;
+            return [];
+          }
+
+          return environments.map(env => ({
+            ...basePos,
+            idInfrastructure: infra,
+            idEnvironment: env
+          }));
+        });
+
+        if (alreadyExists) {
+          this._posListService.showPOSAlreadyExistSnackBar();
+        }
+
+        if (requests.length === 0) return;
+
+        from(requests).pipe(
+          mergeMap(pos =>
+            this._posExtService.postPos(pos)
+          ),
+          takeUntilDestroyed(this._destroyRef)
+        ).subscribe({
+          next: () => {},
+          complete: () => this.updateData()
+        });
+      });
+  }
+
+  filterPos(): void {
+    const dialogRef = this._dialog.open(FilterPosComponent, {
+      autoFocus: false,
+      enterAnimationDuration: '0ms',
+      exitAnimationDuration: '0ms',
+      data: {
+        allFilters: { enums: this.enumsList() },
+        selectedFilters: this.selectedFilters()
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result) {
+        this.allFiltersLength.set(0);
+        this.searchComponent.clearSearch(false);
+        this.selectedFilters.set(result);
+        if (result.infrastructure?.length || result.environment?.length || result.payment?.length) {
+          this.infrastructureFilter.set(result.infrastructure?.length);
+          this.environmentFilter.set(result.environment?.length);
+          this.paymentMethodFilter.set(result.payment?.length);
+          this.allFiltersLength.update(value => value + result.infrastructure?.length + result.environment?.length + result.payment?.length);
+          this._posService.getFilteredPosBy({persoId: this.persoId, infrastructure: result.infrastructure, environment: result.environment, paymentMethod: result.payment})
+          .pipe(takeUntilDestroyed(this._destroyRef))
+          .subscribe((posListFiltered) => {
+            this.searchedItems.set(posListFiltered);
+          })
+        } else {
+          this.updateData();
+        }
+      }
+    });
+  }
+
+  clearFilters(): void {
+    this.selectedFilters.set({
+      payment: [],
+      infrastructure: [],
+      environment: []
+    });
+    this.infrastructureFilter.set(0);
+    this.environmentFilter.set(0);
+    this.paymentMethodFilter.set(0);
+    this.allFiltersLength.set(0);
+  }
+
+  openUploadDialog(): void
+  {
+    const dialogRef = this._dialog.open(ImportDialogComponent, {
+      enterAnimationDuration: '0ms',
+      exitAnimationDuration: '0ms',
+      data: []
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      
+      let data: any[] = [];
+
+      if(result && result.action == 'upload' && result.data)
+      {
+        data = result.data;
+
+        data = result.data.map((o:any) => {
+          return new POS(o.posId,this.persoId,o.paymentSettings,o.language,o.paymentMethod,o.environment,o.infrastructure, o.mac,o.tags, o.id); 
+        });
+        this.getData = [];
+        data.forEach(p =>{
+          if(p.posId.length === 7 && (p.posId.match('[A-Za-z0-9]{7}') !== null) && 
+              p.paymentSettings !== null && p.language !== null && p.paymentMethod !== null && p.environment !== null && p.infrastructure !== null &&
+              p.mac.length === 40 && (p.mac.match('[0-9a-zA-Z]{40}') !== null) )
+              {
+                if(!this._posListService.isPosExist(this.posListData(), p)){
+                  p.idPaymentMethod = this.enumsList().payment_methods?.find(pm => pm.value == p.paymentMethod)?.id;
+                  p.idLanguage = this.enumsList().languages?.find(l => l.value == p.language)?.id;
+                  p.idInfrastructure = this.enumsList().infrastructures?.find(i => i.value == p.infrastructure)?.id;
+                  p.idEnvironment = this.enumsList().environments?.find(e => e.value == p.environment)?.id;
+
+                  p.id = 0;
+                  this._posExtService.postPos(p).pipe(takeUntilDestroyed(this._destroyRef)).subscribe(() => {
+                    this.updateData();
+                  });
+                } else {
+                  this.getData.push(p);
+                }
+              }
+        });
+
+        if (this.getData.length) {
+          this._posListService.showPOSAlreadyExistSnackBar(this.getData);
+        }
+      }
+    });
+  }
+
+  getFormEnum(): void {
+    this._enumService.getPosEnums().pipe(take(1)).subscribe((enumlist) => {
+      this.enumsList().environments = enumlist.environments;
+      this.enumsList().infrastructures = enumlist.infrastructures;
+      this.enumsList().payment_methods = enumlist.payment_methods;
+      this.enumsList().languages = enumlist.languages;
+    });
+  }
+}
+
+This is the teplate file 
+
+<div id="pos_list_div">
+    <div id="pos_list_entete">
+        <h2> Liste des POS </h2>
+    </div>
+
+    <app-search-pos 
+        [columnData]="posListData()" 
+        [resetTrigger]="resetSearchTrigger()"
+        (searchChanged)="onSearchChanged($event)">
+    </app-search-pos>
+  
+    <ng-template id="pos_list_body" [ngIf]="posListData()">
+        <div id="pos_list_options">
+            <button mat-mini-fab color="primary" matTooltip="Rafraichir" (click)="updateData()">
+                <mat-icon aria-hidden="false"  fontIcon="refresh"></mat-icon>
+            </button>
+            <button mat-mini-fab color="primary" matTooltip="Importer" (click)=openUploadDialog() id="json">
+                <mat-icon aria-hidden="false" fontIcon="publish"></mat-icon>
+            </button>
+            <button mat-mini-fab color="primary" matTooltip="Ajouter" (click)="addPos()">
+                <mat-icon aria-hidden="false" fontIcon="add"></mat-icon>
+            </button>
+            <button mat-mini-fab color="primary" matTooltip="Filtrer" (click)="filterPos()">
+                <mat-icon aria-hidden="false"  fontIcon="filter_list"></mat-icon>
+                <span *ngIf="allFiltersLength() > 0" class="all-filters">{{ allFiltersLength() }}</span>
+            </button>
+        </div>
+        <app-list 
+            (onModify)="modifyPos($event)" 
+            (onDelete)="updateData()" 
+            [columns]="columns" 
+            [columnData]="searchedItems()"
+            [infrastructureFilter]=infrastructureFilter()
+            [environmentFilter]=environmentFilter()
+            [paymentMethodFilter]=paymentMethodFilter()
+            ></app-list>
+    </ng-template>
+</div>
+<a id="downloadAnchorElement" [download]="fileUrl"></a>
