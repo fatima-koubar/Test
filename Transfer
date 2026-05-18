@@ -1,95 +1,25 @@
+import { APP_BOOTSTRAP_LISTENER, ApplicationConfig } from '@angular/core';
+import { Routes, provideRouter } from '@angular/router';
+import {
+  ENVIRONMENT_TOKEN,
+  INTEGRATION_TYPES,
+  providePaymentComponent,
+} from '@r-emc1/payment-component';
+import { environment } from 'src/environments/environment';
+import { AppRouterComponent } from './router-component/components/router/router.component';
 
-
-J'ai 3 applications angular: 
-
-- payment-component-lib
-- payment-component-app
-- payment-component-sdk 
-
-
-je communique entre eux en utilisant le postMessage. 
-
-dans payment-component-lib: 
-
-export class PaymentMeanComponent implements OnInit {
-
-async ngOnInit(): Promise<void> {
-    const isPaymentComponent = this._integrationType === INTEGRATION_TYPES.PAYMENT_COMPONENT;
-
-    if (isPaymentComponent) {
-      window.parent.postMessage({ action: 'ready' }, '*');
-      window.addEventListener('message', this.handlePaymentMessage);
-    } else {
-      this.hateoasLinks.set(this.links());
-      await this.initiate();
-    }
-  }
-
-  private handlePaymentMessage = async (event: MessageEvent): Promise<void> => {
-    const { action, paymentMeanType } = event.data || {};
-
-    const links =
-      action === 'sendPaymentMeanType' && paymentMeanType
-        ? this.getPaymentMeanByWrapperId(paymentMeanType)
-        : this.links();
-
-    this.hateoasLinks.set(links);
-
-    if (paymentMeanType) {
-      this._document.body.classList.add('mono');
-    }
-
-    await this.initiate();
-  };
-
-  private async initiate(): Promise<void> {
-    this.paymentMeans.set(
-      (this.hateoasLinks().paymentMeans ?? []).map((pm) =>
-        createPaymentMean(this.getPaymentMeanProps(pm)),
-      ),
-    );
-
-    this.paymentSessionHref.set(this.hateoasLinks().self.href);
-
-    await this._service.applePayloadScript(this.paymentMeans(), this.links());
-    this.isReady.set(true);
-  }
-
-  private getPaymentMeanByWrapperId(paymentMeanType: string) {
-    return {
-      ...this.links(),
-      asProps: this.links().asProps,
-      paymentMeans: !paymentMeanType
-        ? []
-        : this.links().paymentMeans?.filter((pm) => pm.type === paymentMeanType),
-    };
-  }
- }
-  
-  
-  dans payment-component-sdk: 
-  
-  export class PaymentComponent extends EventTarget {
-  type: string = '';
-
-  generate(id: string, paymentMeanType?: string): void {
-      window.addEventListener('message', (event) => {
-        if (acceptedEmitters.findIndex(x => x === event.source) === -1) {
-          return;
-        }
-        switch (event.data.action) {
-          case 'ready':
-              iframeContent?.postMessage({ action: 'sendPaymentMeanType', paymentMeanType: paymentMeanType ?? undefined }, "*");
-            break;
-        }
-      });
-  }
-}
-
-
-dans payment-component-app, j'ai dans app.config.ts:
+//@TODO: mutualiser dans i18ninitializer
+import '@angular/common/locales/global/fr';
+import { AppApplePayPopinComponent } from './apple-pay-popin-component/apple-pay-popin.component';
+import { AppRedirectionComponent } from './redirection-component/components/redirection/redirection.component';
+import { SdkTranslationsService } from './sdk-translations.service';
+import { AppPaymentMeanComponent } from './payment-mean-component/components/payment-mean/payment-mean.component';
 
 export const routes: Routes = [
+  {
+    path: 'payment-session/:id/:paymentMeanType',
+    component: AppPaymentMeanComponent,
+  },
   {
     path: 'payment-session/:id',
     component: AppRouterComponent,
@@ -102,35 +32,59 @@ export const routes: Routes = [
     path: 'payment-session/:id/apple-pay/popin',
     component: AppApplePayPopinComponent,
   },
-  
 ];
 
-et dans payment-mean.component.ts j'ai: 
-export class AppPaymentMeanComponent {
-  sandbox = input.required<boolean>();
-  data = input.required<PaymentMeanData>();
-  paymentSessionId = input.required<string>();
-  links = input.required<Hateoas>();
-  nextStepEvent = output<Redirection>();
-  }
-  
-  et dans payment-mean.component.html j'ai : 
-  <pc-payment-mean
-      [data]="data()"
-      [links]="links()"
-      (nextStepEvent)="this.nextStepEvent.emit($event)"
-      [paymentSessionId]="paymentSessionId()"
-    ></pc-payment-mean>
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideRouter(routes),
+    { provide: ENVIRONMENT_TOKEN, useValue: environment },
+    providePaymentComponent({
+      context: INTEGRATION_TYPES.PAYMENT_COMPONENT,
+      onFaviconLinkLoad: () => {
+        const container = document.getElementById('mainDiv');
+        const height = container!.scrollHeight + 1;
+        const compStyle = getComputedStyle(document.documentElement);
+        window.parent.postMessage(
+          {
+            action: 'resize',
+            height: height,
+            borderRadius: compStyle.getPropertyValue('--button-borderRadius'),
+          },
+          '*',
+        );
+      },
+    }),
+    {
+      provide: APP_BOOTSTRAP_LISTENER,
+      multi: true,
+      useFactory: (sdkTranslationsService: SdkTranslationsService) => {
+        return () => sdkTranslationsService.init();
+      },
+      deps: [SdkTranslationsService],
+    },
+  ],
+};
 
-je voudrais ajouter une nouvelle route dans app.config.ts, pour envoyer le paymentMeanType du sdk a travers le routing au lieu de passer par postMessage:
- {
-    path: 'payment-session/:id/:paymentMeanType',
-    component: AppPaymentMeanComponent,
-  },
-  
-  exemple : https://dev-p.monetico-services.com/test/payment-page/payment-session/0075e8d3-9774-4c1a-b8de-349084310fe8/{paymentMeanType}
-  
-  donc en gros, on envoie le paymentMeanType de payment-component-sdk à la payment-component-app à travers le routing (sans l'envoyer à la lib à travers le postMessage) pour filtrer les links selon la peymentMeanType envoyé dans payment-component-app et non pas dans la payment-component-lib 
-  
-  
-  
+
+router.component.html: 
+
+@if (_paymentSessionStore.initialized()) {
+  @switch (_paymentSessionStore.currentView()) {
+    @case (VIEW_TYPES.ERROR_VIEW) {
+      <pcapp-error [data]="$any(_paymentSessionStore.data())"></pcapp-error>
+    }
+    @case (VIEW_TYPES.PAYMENT_MEAN_VIEW) {
+      <pcapp-payment-mean
+        [paymentSessionId]="_paymentSessionStore.id()"
+        [data]="$any(_paymentSessionStore.data())"
+        [sandbox]="_paymentSessionStore.sandbox()"
+        [links]="_paymentSessionStore.hateoasLinks()"
+        (nextStepEvent)="handleNextStep($event)"
+      ></pcapp-payment-mean>
+    }
+    @case (VIEW_TYPES.SUMMARY_TICKET_VIEW) {
+      <pcapp-summary-ticket (nextStepEvent)="handleNextStep($event)"></pcapp-summary-ticket>
+    }
+  }
+}
+
