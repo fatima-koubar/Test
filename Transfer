@@ -1,2 +1,136 @@
 
-{"countryCode":"FR","currencyCode":"EUR","merchantCapabilities":["supports3DS"],"supportedNetworks":["visa","cartesbancaires","masterCard"],"total":{"label":"COUSSIFL pour le TPE FCORECU","type":"final","amount":"10.01"},"recurringPaymentRequest":{"paymentDescription":"COUSSIFL pour le TPE FCORECU","regularBilling":{"label":"Abonnement","amount":"10.01","paymentTiming":"recurring","recurringPaymentEndDate":"2026-04-24T00:00:00.000Z","recurringPaymentIntervalUnit":"monthly","recurringPaymentIntervalCount":1},"managementURL":"https://florian-coussin.com/subscription/management"}}
+
+J'ai 3 applications angular: 
+
+- payment-component-lib
+- payment-component-app
+- payment-component-sdk 
+
+
+je communique entre eux en utilisant le postMessage. 
+
+dans payment-component-lib: 
+
+export class PaymentMeanComponent implements OnInit {
+
+async ngOnInit(): Promise<void> {
+    const isPaymentComponent = this._integrationType === INTEGRATION_TYPES.PAYMENT_COMPONENT;
+
+    if (isPaymentComponent) {
+      window.parent.postMessage({ action: 'ready' }, '*');
+      window.addEventListener('message', this.handlePaymentMessage);
+    } else {
+      this.hateoasLinks.set(this.links());
+      await this.initiate();
+    }
+  }
+
+  private handlePaymentMessage = async (event: MessageEvent): Promise<void> => {
+    const { action, paymentMeanType } = event.data || {};
+
+    const links =
+      action === 'sendPaymentMeanType' && paymentMeanType
+        ? this.getPaymentMeanByWrapperId(paymentMeanType)
+        : this.links();
+
+    this.hateoasLinks.set(links);
+
+    if (paymentMeanType) {
+      this._document.body.classList.add('mono');
+    }
+
+    await this.initiate();
+  };
+
+  private async initiate(): Promise<void> {
+    this.paymentMeans.set(
+      (this.hateoasLinks().paymentMeans ?? []).map((pm) =>
+        createPaymentMean(this.getPaymentMeanProps(pm)),
+      ),
+    );
+
+    this.paymentSessionHref.set(this.hateoasLinks().self.href);
+
+    await this._service.applePayloadScript(this.paymentMeans(), this.links());
+    this.isReady.set(true);
+  }
+
+  private getPaymentMeanByWrapperId(paymentMeanType: string) {
+    return {
+      ...this.links(),
+      asProps: this.links().asProps,
+      paymentMeans: !paymentMeanType
+        ? []
+        : this.links().paymentMeans?.filter((pm) => pm.type === paymentMeanType),
+    };
+  }
+ }
+  
+  
+  dans payment-component-sdk: 
+  
+  export class PaymentComponent extends EventTarget {
+  type: string = '';
+
+  generate(id: string, paymentMeanType?: string): void {
+      window.addEventListener('message', (event) => {
+        if (acceptedEmitters.findIndex(x => x === event.source) === -1) {
+          return;
+        }
+        switch (event.data.action) {
+          case 'ready':
+              iframeContent?.postMessage({ action: 'sendPaymentMeanType', paymentMeanType: paymentMeanType ?? undefined }, "*");
+            break;
+        }
+      });
+  }
+}
+
+
+dans payment-component-app, j'ai dans app.config.ts:
+
+export const routes: Routes = [
+  {
+    path: 'payment-session/:id',
+    component: AppRouterComponent,
+  },
+  {
+    path: 'payment-session/:id/redirect/popin',
+    component: AppRedirectionComponent,
+  },
+  {
+    path: 'payment-session/:id/apple-pay/popin',
+    component: AppApplePayPopinComponent,
+  },
+  
+];
+
+et dans payment-mean.component.ts j'ai: 
+export class AppPaymentMeanComponent {
+  sandbox = input.required<boolean>();
+  data = input.required<PaymentMeanData>();
+  paymentSessionId = input.required<string>();
+  links = input.required<Hateoas>();
+  nextStepEvent = output<Redirection>();
+  }
+  
+  et dans payment-mean.component.html j'ai : 
+  <pc-payment-mean
+      [data]="data()"
+      [links]="links()"
+      (nextStepEvent)="this.nextStepEvent.emit($event)"
+      [paymentSessionId]="paymentSessionId()"
+    ></pc-payment-mean>
+
+je voudrais ajouter une nouvelle route dans app.config.ts, pour envoyer le paymentMeanType du sdk a travers le routing au lieu de passer par postMessage:
+ {
+    path: 'payment-session/:id/:paymentMeanType',
+    component: AppPaymentMeanComponent,
+  },
+  
+  exemple : https://dev-p.monetico-services.com/test/payment-page/payment-session/0075e8d3-9774-4c1a-b8de-349084310fe8/{paymentMeanType}
+  
+  donc en gros, on envoie le paymentMeanType de payment-component-sdk à la payment-component-app à travers le routing (sans l'envoyer à la lib à travers le postMessage) pour filtrer les links selon la peymentMeanType envoyé dans payment-component-app et non pas dans la payment-component-lib 
+  
+  
+  
