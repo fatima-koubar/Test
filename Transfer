@@ -1,101 +1,133 @@
-en angular, j'ai un problème dans ce code, c'est quand je click sur le bouton applepay, je vois dans le console submit applepay, mais pas handlesubmit
+j'ai des applications angular :
 
-payment-mean.component.html
+payment-component-app et payment-component-sdk
 
-@if (isReady() && paymentMeans()) {
-  <div class="mp_acc_paymtmean ei_overflowhidden">
-    @for (paymentMean of paymentMeans(); track paymentMean; let pmCount = $count) {
-      <div
-        #overlay
-        class="ei_relative"
-        [class]="{'mp_acc_paymtmean_item': true, 'mp_acc_paymtmean_item_selected': isSelectedPaymentMean(paymentMean), 'mp_acc_paymtmean_item_uniq': pmCount == 1}"
-      >
-        @switch (paymentMean.type) {
-          @case (PaymentMeanType.APPLEPAY) {
-            @defer (when paymentMean.type === PaymentMeanType.APPLEPAY) {
-              <pc-apple-pay
-                [amount]="data().amount"
-                [paymentMeanHref]="paymentMean.href"
-                [hidden]="pmCount > 0 && !isSelectedPaymentMean(paymentMean)"
-                (submitEvent)="handleSubmit($event)"
-                [paymentSessionHref]="paymentSessionHref()"
-              ></pc-apple-pay>
-            }
-          }
-        }
-      </div>
-    }
-  </div>
-}
+dans payment-component-app,  j'ai: 
 
 payment-mean.component.ts
 
 @Component({
-  selector: 'pc-payment-mean',
+  selector: 'pcapp-payment-mean',
   templateUrl: './payment-mean.component.html',
-  styleUrls: ['./payment-mean.component.scss'],
   standalone: true,
+  imports: [PaymentMeanComponent],
 })
-export class PaymentMeanComponent implements OnInit {
-
-	async handleSubmit(type: PaymentMeanType) {
-		console.log('handlesubmit');
-		const redirection = await this._service.submitPaymentMean(this.paymentSessionHref(), type);
-		this.redirect(redirection);
-	}
-}
-
-
-apple-pay.component.html
-
-<div class="mp_acc_paymtmean_panel ei_relative applepay_container" #applepayoverlay>
+export class AppPaymentMeanComponent {
+  sandbox = input.required<boolean>();
+  data = input.required<PaymentMeanData>();
+  paymentSessionId = input.required<string>();
+  links = input.required<Hateoas>();
+  nextStepEvent = output<Redirection>();
+  }
+  
+  payment-mean.component.ts
+  
   <div class="ei_flex ei_flex_justcenter">
-    @if (canApplePayPayment()) {
-      <pc-apple-pay-button
-        [locale]="locale()"
-        (handleClick)="handleClick()"
-        class="mt-4"
-      ></pc-apple-pay-button>
-    } @else {
-      <button class="pay-button mp_btn mp_btn_pay cpc ei_flex_justcenter" (click)="handleClick()">
-        <span
-          translate
-          [translateParams]="{
-            amount: amount() | amount
-          }"
-        >
-          _SHARED.ACTIONS.PAY
-        </span>
-      </button>
-    }
+  <div class="mp_mainbloc">
+    <pc-payment-mean
+      [data]="data()"
+      [links]="links()"
+      (nextStepEvent)="this.nextStepEvent.emit($event)"
+      [paymentSessionId]="paymentSessionId()"
+    ></pc-payment-mean>
   </div>
 </div>
-  
-apple-pay.component.ts 
 
-@Component({
-  selector: 'pc-apple-pay',
-  templateUrl: './apple-pay.component.html',
-  standalone: true,
-})
+app.config.ts
 
-export class ApplePayComponent implements OnInit {
-  submitEvent: OutputEmitterRef<PaymentMeanType> = output<PaymentMeanType>();
-  private readonly _applePayService = inject(ApplePayService);
+export const routes: Routes = [
+  {
+    path: 'payment-session/:id/:paymentMeanType',
+    component: AppPaymentMeanComponent,
+  },
+  {
+    path: 'payment-session/:id',
+    component: AppRouterComponent,
+  },
+  {
+    path: 'payment-session/:id/redirect/popin',
+    component: AppRedirectionComponent,
+  },
+  {
+    path: 'payment-session/:id/apple-pay/popin',
+    component: AppApplePayPopinComponent,
+  },
+];
 
-  async ngOnInit(): Promise<void> {
-    this._applePayService.setSubmitEvent(() => {
-      console.log('submit applepay');
-      this.submitEvent.emit(PAYMENT_MEAN_TYPES.APPLEPAY);
-    });
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideRouter(routes),
+    { provide: ENVIRONMENT_TOKEN, useValue: environment },
+    providePaymentComponent({
+      context: INTEGRATION_TYPES.PAYMENT_COMPONENT,
+      onFaviconLinkLoad: () => {
+        const container = document.getElementById('mainDiv');
+        const height = container!.scrollHeight + 1;
+        const compStyle = getComputedStyle(document.documentElement);
+        window.parent.postMessage(
+          {
+            action: 'resize',
+            height: height,
+            borderRadius: compStyle.getPropertyValue('--button-borderRadius'),
+          },
+          '*',
+        );
+      },
+    }),
+    {
+      provide: APP_BOOTSTRAP_LISTENER,
+      multi: true,
+      useFactory: (sdkTranslationsService: SdkTranslationsService) => {
+        return () => sdkTranslationsService.init();
+      },
+      deps: [SdkTranslationsService],
+    },
+  ],
+};
+
+et dans payment-comonent-sdk j'ai: 
+
+export class PaymentComponent extends EventTarget {
+  type: string = '';
+
+  private translations?: TranslationsPayload
+
+  constructor(private _paymentSessionId: string) {
+    super();
   }
 
-  handleClick(): void {
-	  window.parent.postMessage(
-		{ action: 'create', url: window.location.href + APPLE_PAY_POPIN },
-		'*',
-	  );
-	  console.log('handleClick applepay');
+  generate(id: string, paymentMeanType?: string): void {
+    const paymentComponent = document.createElement('pc-payment-component') as NgElement & WithProperties<{ paymentSessionId: string, title: string }>;
+    paymentComponent.style.width = '100%';
+    paymentComponent.style.height = '0';
+    paymentComponent.paymentSessionId = this._paymentSessionId;
+
+    let iframePopin: NgElement;
+    const wrapper = document.getElementById(id);
+    if (wrapper) {
+      wrapper.appendChild(paymentComponent);
+      let acceptedEmitters : Window[] = [];
+      const iframeContent = (paymentComponent.getElementsByTagName("iframe")[0] as HTMLIFrameElement).contentWindow;
+      acceptedEmitters.push(iframeContent!);
+      window.addEventListener('message', (event) => {
+        if (acceptedEmitters.findIndex(x => x === event.source) === -1) {
+          return;
+        }
+        switch (event.data.action) {
+          case 'ready':
+            console.log("ready received");
+            if (paymentMeanType) {
+              const iframeBis = document.getElementById('pc-iframe') as HTMLIFrameElement;
+              const url = environment.moneticoUrl + '/payment-component/payment-session/' + this._paymentSessionId + '/' + paymentMeanType;
+              iframeBis.src = url;
+            }
+              // iframeContent?.postMessage({ action: 'sendPaymentMeanType', paymentMeanType: paymentMeanType ?? undefined }, "*");
+            break;
+        }
+      });
+    }
   }
 }
+
+je veux envoyer filtrer les links selon le paymentMeanType envoyé depuis le sdk via le routing. ouù je dois envoyer le postMessage ready et comment je peux faire ce filtre
 
