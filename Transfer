@@ -1,1 +1,161 @@
 
+merchant-verification.dto.ts
+
+export type MerchantVerificationDTO = {
+  displayName: string;
+  domainName: string;
+  epochTimestamp: number;
+  expiresAt: number;
+  merchantIdentifier: string;
+  merchantSessionIdentifier: string;
+  nonce: string;
+  operationalAnalyticsIdentifier: string;
+  pspId: string;
+  retries: number;
+  signature: string;
+};
+
+
+apple-pay.api.ts
+
+public merchantVerification(
+    merchantValidationRequest: MerchantValidationRequest,
+  ): Observable<MerchantVerificationDTO> | never {
+    return this._apiCallerService.post(
+      `https://${window.location.hostname}${MERCHANT_VALIDATION_PATH}`,
+      JSON.stringify(merchantValidationRequest),
+    );
+  }
+}
+
+
+apple-pay-session.builder.ts
+
+const APPLEPAY_SESSION_VERSION = 3;
+
+export class ApplePaySessionBuilder {
+  private _applePaySession: ApplePaySession;
+  private _applePaySessionPayload: ApplePaySessionPayload;
+
+  constructor(request: ApplePayPaymentRequest, applePaySessionPayload: ApplePaySessionPayload) {
+    this._applePaySession = new ApplePaySession(APPLEPAY_SESSION_VERSION, request);
+    this._applePaySessionPayload = applePaySessionPayload;
+  }
+
+  public withValidationMerchantEventHandler(
+    callback: (
+      merchantValidationRequest: MerchantValidationRequest,
+    ) => Promise<MerchantSession | undefined>,
+  ): this {
+    this._applePaySession.onvalidatemerchant = async (event: ApplePayValidateMerchantEvent) => {
+      try {
+        let merchantValidationRequest: MerchantValidationRequest = {
+          merchant_identifier: this._applePaySessionPayload.merchant_identifier,
+          initiative_context: this._applePaySessionPayload.domain ?? window.location.hostname,
+          validation_url: event.validationURL,
+          display_name: this._applePaySessionPayload.merchant_name,
+          collection_session_id: this._applePaySessionPayload.collection_session_id,
+        };
+
+        const validationData = await callback(merchantValidationRequest);
+
+        this._applePaySession.completeMerchantValidation(validationData);
+      } catch (error) {
+        this._applePaySession.abort();
+      }
+    };
+
+    return this;
+  }
+
+  public withCancelEventHandler(callback: (() => void) | undefined): this {
+    if (callback) this._applePaySession.oncancel = callback;
+    return this;
+  }
+
+  public withPaymentAuthorizedEventHandler(callback: (token: string) => Promise<void>) {
+    this._applePaySession.onpaymentauthorized = async (
+      event: ApplePayPaymentAuthorizationEvent,
+    ) => {
+      try {
+        event.payment.token.paymentMethod.network =
+          event.payment.token.paymentMethod.network.toLowerCase();
+
+        await callback(btoa(JSON.stringify(event.payment.token)));
+
+        this._applePaySession.completePayment(ApplePaySession.STATUS_SUCCESS);
+      } catch (error) {
+        this._applePaySession.completePayment(ApplePaySession.STATUS_FAILURE);
+      }
+    };
+
+    return this;
+  }
+
+  public build(): ApplePaySession {
+    return this._applePaySession;
+  }
+}
+
+
+
+apple-pay-session-builder.service.ts
+
+export class ApplePaySessionBuilderService {
+  private readonly _applePayApi = inject(ApplePayApi);
+  private readonly _toastrService = inject(PcToastrService);
+  private readonly _applePayService = inject(ApplePayService);
+
+  createSession(params: {
+    countryCode: string;
+    brandList: string[];
+    merchantName: string;
+    amount: string;
+    payload: ApplePaySessionPayload | undefined;
+    container: ViewContainerRef | undefined;
+    onCancel?: () => void;
+  }) {
+    const request: ApplePayPaymentRequest = {
+      countryCode: params.countryCode,
+      currencyCode: 'EUR',
+      merchantCapabilities: ['supports3DS'],
+      supportedNetworks: params.brandList,
+      total: {
+        label: params.merchantName,
+        type: 'final',
+        amount: params.amount,
+      },
+    };
+
+    return new ApplePaySessionBuilder(request, params.payload!)
+      .withValidationMerchantEventHandler(async (validationRequest) => {
+        try {
+          const data = await firstValueFrom(
+            this._applePayApi.merchantVerification(validationRequest),
+          );
+
+          return {
+            displayName: data.displayName,
+            domainName: data.domainName,
+            epochTimestamp: data.epochTimestamp,
+            expiresAt: data.expiresAt,
+            merchantIdentifier: data.merchantIdentifier,
+            merchantSessionIdentifier: data.merchantSessionIdentifier,
+            nonce: data.nonce,
+            operationalAnalyticsIdentifier: data.operationalAnalyticsIdentifier,
+            pspId: data.pspId,
+            retries: data.retries,
+            signature: data.signature,
+          } as MerchantSession;
+        } catch {
+          this._toastrService.notify('_SHARED.ERRORS.TECHNICAL_PROBLEM');
+          return;
+        }
+      })
+      .withPaymentAuthorizedEventHandler(async (token: string) => {
+        this._applePayService.putToken(token);
+      })
+      .withCancelEventHandler(params.onCancel)
+      .build();
+  }
+}
