@@ -15,6 +15,16 @@ export type MerchantVerificationDTO = {
   signature: string;
 };
 
+merchant-validation-request.model.ts
+
+export interface MerchantValidationRequest {
+  initiative_context: string;
+  validation_url: string;
+  display_name: string;
+  collection_session_id?: string;
+  merchant_identifier: string;
+}
+
 
 apple-pay.api.ts
 
