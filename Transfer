@@ -1,4 +1,1 @@
-ça me donne une erreur : 
-zone.js:163 Uncaught RuntimeError: NG0950: Input is required but no value is available yet. Find more at https://angular.dev/errors/NG0950
-    at AppPaymentMeanComponent.inputValueFn [as data] (core.mjs:100:19)
-    at AppPaymentMeanComponent_Template (payment-mean.component.html:4:7)
+
