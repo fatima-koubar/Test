@@ -1,10 +1,3 @@
-j'ai 3 projets angular: 
-
-payment-component-lib, payment-component-app et payment-component-sdk
-
-dans payment-component-sdk, on a une fonction generate qui prend en parametre l'ide de la session et le type du paiement , et elle crée 
-un élément pc-payment-component qui contient un iFrame. Cette fonction s'execute en premier. 
-
 import { NgElement, WithProperties } from '@angular/elements';
 import { environment } from 'src/environments/environment';
 
@@ -35,6 +28,7 @@ export class PaymentComponent extends EventTarget {
     if (wrapper) {
       wrapper.appendChild(paymentComponent);
       let acceptedEmitters : Window[] = [];
+      let routeAlreadyUpdated = false;
       const iframeContent = (paymentComponent.getElementsByTagName("iframe")[0] as HTMLIFrameElement).contentWindow;
       acceptedEmitters.push(iframeContent!);
       window.addEventListener('message', (event) => {
@@ -42,18 +36,89 @@ export class PaymentComponent extends EventTarget {
           return;
         }
         switch (event.data.action) {
+          case 'create':
+            const url = event.data.url;
+            iframePopin = this.createPopinComponent(url, paymentMeanType);
+            const iframePopinContent = (iframePopin.getElementsByTagName("iframe")[0] as HTMLIFrameElement).contentWindow;
+            acceptedEmitters.push(iframePopinContent!)
+            break;
+          case 'resize':
+            const height = event.data.height;
+            const borderRadius = event.data.borderRadius;
+            if (height > 1) {
+              paymentComponent.style.height = height + 'px';
+            }
+            if (borderRadius) {
+              const iframe = paymentComponent.getElementsByTagName('iframe');
+              iframe[0].style.borderRadius = borderRadius;
+              wrapper.style.borderRadius = borderRadius;
+            }
+            break;
+          case 'finalize':
+            if (iframePopin) {
+              setTimeout(() => { iframePopin.remove() }, 1000);
+            }
+            const iframe = paymentComponent.getElementsByTagName('iframe');
+            iframe[0].src = iframe[0].src;
+            break;
+          case 'error':
+            if (iframePopin) {
+              setTimeout(() => {iframePopin.remove();},1000);
+            }
+            const iframe2 = paymentComponent.getElementsByTagName('iframe');
+            iframe2[0].src = environment.moneticoUrl + '/payment-component/payment-session/error';
+            break;
+          case 'notify':
+            if (event.data.eventType === 'paymentMeanSubmitted') {
+              const customEvent = new CustomEvent(event.data.eventType, {
+                detail : {
+                  type: this.type
+                }
+              });
+              this.dispatchEvent(customEvent);
+            } else {
+              const eventType = event.data.eventType;
+              this.dispatchEvent(new Event(eventType));
+            }
+            break;
+          case 'close':
+            if (iframePopin) {
+              iframePopin.remove();
+            }
+            break;
+          case 'sdk-translations':
+            this.translations = event.data.translations as TranslationsPayload;
+            paymentComponent.title = this.translations['iFrameTitle'] + ' ' + paymentMeanType;
+            break;
           case 'ready':
             console.log("ready received");
+            if (routeAlreadyUpdated) {
+              return;
+            }
+            routeAlreadyUpdated = true;
             if (paymentMeanType) {
               const iframeBis = document.getElementById('pc-iframe') as HTMLIFrameElement;
-              const url = environment.moneticoUrl + '/payment-component/payment-session/' + this._paymentSessionId + '/' + paymentMeanType;
+              const url = environment.moneticoUrl + '/payment-component/payment-session/' + this._paymentSessionId + '?paymentMeanType=' + paymentMeanType;
               iframeBis.src = url;
             }
               // iframeContent?.postMessage({ action: 'sendPaymentMeanType', paymentMeanType: paymentMeanType ?? undefined }, "*");
             break;
+          case 'sendType':
+              this.type = event.data.type;
+            break;
         }
       });
     }
+  }
+
+  private createPopinComponent(url: string, paymentMeanType?: string): NgElement {
+    const iframePopin = document.createElement('pc-redirection-popin') as NgElement & WithProperties<{ url: string, title: string }>;
+    iframePopin.url = url;
+    if (this.translations) {
+      iframePopin.title = this.translations['iFramePopinTitle'] + ' ' + paymentMeanType;
+    }
+    document.body.appendChild(iframePopin);
+    return iframePopin;
   }
 }
 export class PaymentComponents {
@@ -76,363 +141,3 @@ export class PaymentComponents {
   }
 
 }
-
-
-Dans payment-component-app, on a des routes: 
-app.config.ts: 
-import { ApplicationConfig } from '@angular/core';
-import { Routes, provideRouter } from '@angular/router';
-import {
-  ENVIRONMENT_TOKEN,
-  INTEGRATION_TYPES,
-  providePaymentComponent,
-} from '@r-emc1/payment-component';
-import { environment } from 'src/environments/environment';
-import { AppRouterComponent } from './router-component/components/router/router.component';
-
-//@TODO: mutualiser dans i18ninitializer
-import '@angular/common/locales/global/fr';
-import { AppApplePayPopinComponent } from './apple-pay-popin-component/apple-pay-popin.component';
-import { AppRedirectionComponent } from './redirection-component/components/redirection/redirection.component';
-import { AppPaymentMeanComponent } from './payment-mean-component/components/payment-mean/payment-mean.component';
-
-export const routes: Routes = [
-  {
-    path: 'payment-session/:id/:paymentMeanType',
-    component: AppPaymentMeanComponent,
-  },
-  {
-    path: 'payment-session/:id',
-    component: AppRouterComponent,
-  },
-  {
-    path: 'payment-session/:id/redirect/popin',
-    component: AppRedirectionComponent,
-  },
-  {
-    path: 'payment-session/:id/apple-pay/popin',
-    component: AppApplePayPopinComponent,
-  },
-];
-
-export const appConfig: ApplicationConfig = {
-  providers: [
-    provideRouter(routes),
-    { provide: ENVIRONMENT_TOKEN, useValue: environment },
-    providePaymentComponent({
-      context: INTEGRATION_TYPES.PAYMENT_COMPONENT,
-      onFaviconLinkLoad: () => {
-        const container = document.getElementById('mainDiv');
-        const height = container!.scrollHeight + 1;
-        const compStyle = getComputedStyle(document.documentElement);
-        window.parent.postMessage(
-          {
-            action: 'resize',
-            height: height,
-            borderRadius: compStyle.getPropertyValue('--button-borderRadius'),
-          },
-          '*',
-        );
-      },
-    }),
-  ],
-};
-
-
-payment-mean.component.html: 
-<div class="ei_flex ei_flex_justcenter">
-  <div class="mp_mainbloc">
-    <pc-payment-mean
-      [data]="data()"
-      [links]="filteredLinks()"
-      (nextStepEvent)="this.nextStepEvent.emit($event)"
-      [paymentSessionId]="paymentSessionId()"
-    ></pc-payment-mean>
-  </div>
-</div>
-
-
-payment-component-mean.ts: 
-export class AppPaymentMeanComponent implements OnInit {
-  private route = inject(ActivatedRoute);
-
-  sandbox = input.required<boolean>();
-  data = input.required<PaymentMeanData>();
-  paymentSessionId = input.required<string>();
-  links = input.required<Hateoas>();
-  nextStepEvent = output<Redirection>();
-
-  paymentMeanType = this.route.snapshot.paramMap.get('paymentMeanType');
-
-  filteredLinks = computed(() => {
-    const links = this.links();
-
-    if (!this.paymentMeanType) {
-      return links;
-    }
-    return {
-      ...this.links(),
-      asProps: this.links().asProps,
-      paymentMeans: !this.paymentMeanType
-        ? []
-        : this.links().paymentMeans?.filter((pm) => pm.type === this.paymentMeanType),
-    };
-  });
-
-  ngOnInit() {
-    window.parent.postMessage({ action: 'ready' }, '*');
-
-    console.log(this.route.snapshot.paramMap.get('paymentMeanType'));
-    console.log(window.location.href);
-  }
-  
-  et les fichier router: 
-  router.component.html: 
-  @if (_paymentSessionStore.initialized()) {
-  @switch (_paymentSessionStore.currentView()) {
-    @case (VIEW_TYPES.ERROR_VIEW) {
-      <pcapp-error [data]="$any(_paymentSessionStore.data())"></pcapp-error>
-    }
-    @case (VIEW_TYPES.PAYMENT_MEAN_VIEW) {
-      <pcapp-payment-mean
-        [paymentSessionId]="_paymentSessionStore.id()"
-        [data]="$any(_paymentSessionStore.data())"
-        [sandbox]="_paymentSessionStore.sandbox()"
-        [links]="_paymentSessionStore.hateoasLinks()"
-        (nextStepEvent)="handleNextStep($event)"
-      ></pcapp-payment-mean>
-    }
-    @case (VIEW_TYPES.SUMMARY_TICKET_VIEW) {
-      <pcapp-summary-ticket (nextStepEvent)="handleNextStep($event)"></pcapp-summary-ticket>
-    }
-  }
-}
-
-router.component.ts:
-import { Component, DestroyRef, OnInit, inject, DOCUMENT } from '@angular/core';
-import {
-  CompleteRedirection,
-  ExternalRedirection,
-  FrictionLessRedirection,
-  PAYMENT_STATES,
-  Redirection,
-  RouterComponent,
-  VIEW_TYPES,
-} from '@r-emc1/payment-component';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { AppErrorComponent } from 'src/app/error-component/components/error/error.component';
-import { AppPaymentMeanComponent } from 'src/app/payment-mean-component/components/payment-mean/payment-mean.component';
-import { AppSummaryTicketComponent } from 'src/app/summary-ticket-component/components/summary-ticket/summary-ticket.component';
-
-import { filter, take, tap } from 'rxjs';
-@Component({
-  selector: 'pcapp-router',
-  templateUrl: './router.component.html',
-  standalone: true,
-  imports: [AppErrorComponent, AppPaymentMeanComponent, AppSummaryTicketComponent],
-})
-export class AppRouterComponent extends RouterComponent implements OnInit {
-  private readonly _document = inject(DOCUMENT);
-  private readonly _destroyRef = inject(DestroyRef);
-
-  private readonly _paymentSessionState$ = toObservable(this._paymentSessionStore.state);
-  private readonly _paymentSessionView$ = toObservable(this._paymentSessionStore.currentView);
-
-  VIEW_TYPES = VIEW_TYPES;
-
-  ngOnInit(): void {
-    this._document.body.classList.add('component-integration');
-
-    this._paymentSessionState$
-      .pipe(
-        filter((state) => state === PAYMENT_STATES.COMPLETED),
-        tap(() =>
-          window.parent.postMessage(
-            { action: 'notify', eventType: 'paymentSessionFinalized' },
-            '*',
-          ),
-        ),
-        takeUntilDestroyed(this._destroyRef),
-      )
-      .subscribe();
-
-    this._paymentSessionView$
-      .pipe(
-        filter((view) => view === VIEW_TYPES.REDIRECTION_VIEW),
-        tap(() =>
-          window.parent.postMessage(
-            { action: 'create', url: window.location.href + '/redirect/popin' },
-            '*',
-          ),
-        ),
-        takeUntilDestroyed(this._destroyRef),
-        take(1),
-      )
-      .subscribe();
-  }
-
-  override handleNextStep(nextStep: Redirection): void {
-    window.parent.postMessage({ action: 'notify', eventType: 'paymentMethodSubmitted' }, '*');
-    if (nextStep instanceof ExternalRedirection || nextStep instanceof CompleteRedirection) {
-      window.parent.postMessage(
-        { action: 'create', url: window.location.href + '/redirect/popin' },
-        '*',
-      );
-      return;
-    }
-    if (!(nextStep instanceof FrictionLessRedirection)) {
-      return;
-    }
-    super.handleNextStep(nextStep);
-  }
-}
-
-
-
-Dans payment-component-lib: 
-On affiche le type de paiement, on a payment-mean.component.ts: 
-export class PaymentMeanComponent implements OnInit {
-  readonly data = input.required<PaymentMeanData>();
-  readonly links = input.required<Hateoas>();
-  readonly paymentSessionId = input.required<string>();
-  readonly hateoasLinks: WritableSignal<Hateoas> = signal<Hateoas>({} as Hateoas);
-
-  readonly nextStepEvent = output<Redirection>();
-
-  private readonly _service = inject(PaymentMeanService);
-  private readonly _spinnerService = inject(SpinnerService);
-  protected readonly _urlService = inject(UrlService);
-  private readonly _integrationType = inject(PAYMENT_SESSION_CONTEXT);
-  private readonly _document = inject(DOCUMENT);
-
-  private readonly _alreadySubmitted = signal<boolean>(false);
-  readonly selectedPaymentMean = signal<PaymentMean | undefined>(undefined);
-  readonly showInvisibleIframe = signal<boolean>(false);
-  readonly isReady = signal<boolean>(false);
-
-  readonly paymentMeans: WritableSignal<PaymentMean[]> = signal<PaymentMean[]>([]);
-  readonly paymentSessionHref: WritableSignal<string> = signal<string>('');
-
-  readonly container = viewChild.required('overlay', { read: ViewContainerRef });
-
-  readonly PaymentMeanType = PAYMENT_MEAN_TYPES;
-
-  async ngOnInit(): Promise<void> {
-    this.hateoasLinks.set(this.links());
-    await this.initiate();
-  }
-
-  private async initiate(): Promise<void> {
-    this.paymentMeans.set(
-      (this.hateoasLinks().paymentMeans ?? []).map((pm) =>
-        createPaymentMean(this.getPaymentMeanProps(pm)),
-      ),
-    );
-
-    this.paymentSessionHref.set(this.hateoasLinks().self.href);
-
-    await this._service.applePayloadScript(this.paymentMeans(), this.links());
-    this.isReady.set(true);
-  }
-
-  private getPaymentMeanProps(hateoasPaymentMean: HateoasPaymentMean) {
-    const basePaymentMean = {
-      type: hateoasPaymentMean.type,
-      href: hateoasPaymentMean.href,
-    };
-
-    if (hateoasPaymentMean instanceof HateoasPaymentMeanPaymentInitiation) {
-      return {
-        ...basePaymentMean,
-        sctType: hateoasPaymentMean.sctType,
-      };
-    }
-    if (hateoasPaymentMean instanceof HateoasPaymentMeanApplePay) {
-      return {
-        ...basePaymentMean,
-        merchantIdentifier: hateoasPaymentMean.merchantIdentifier,
-      };
-    }
-    return basePaymentMean;
-  }
- }
- 
- et payment-mean.component.html: 
- @if (isReady() && paymentMeans()) {
-  <div class="mp_acc_paymtmean ei_overflowhidden">
-    <!-- Item d'accordéon -->
-    @for (paymentMean of paymentMeans(); track paymentMean; let pmCount = $count) {
-      <div
-        #overlay
-        class="ei_relative"
-        [class]="{'mp_acc_paymtmean_item': true, 'mp_acc_paymtmean_item_selected': isSelectedPaymentMean(paymentMean), 'mp_acc_paymtmean_item_uniq': pmCount == 1}"
-      >
-        @switch (paymentMean.type) {
-          @case (PaymentMeanType.PAYMENT_INITIATION) {
-            @defer (when paymentMean.type === PaymentMeanType.PAYMENT_INITIATION) {
-              <pc-payment-initiation
-                [paymentMeanHref]="paymentMean.href"
-                [hidden]="pmCount > 0 && !isSelectedPaymentMean(paymentMean)"
-                [amount]="data().amount"
-                (submitEvent)="handleSubmit($event)"
-              ></pc-payment-initiation>
-            }
-          }
-
-          @case (PaymentMeanType.CARD) {
-            @defer (when paymentMean.type === PaymentMeanType.CARD) {
-              <pc-card
-                [paymentMeanHref]="paymentMean.href"
-                [hidden]="pmCount > 0 && !isSelectedPaymentMean(paymentMean)"
-                [amount]="data().amount"
-                (submitEvent)="handleSubmit($event)"
-                (provideBrowserDataEvent)="handleProvideBrowserData()"
-              ></pc-card>
-            }
-          }
-
-          @case (PaymentMeanType.PAYPAL) {
-            @defer (when paymentMean.type === PaymentMeanType.PAYPAL) {
-              <pc-paypal-button
-                [hidden]="pmCount > 0 && !isSelectedPaymentMean(paymentMean)"
-                [amount]="data().amount"
-                (submitEvent)="handleSubmit($event)"
-              ></pc-paypal-button>
-            }
-          }
-
-          @case (PaymentMeanType.WERO) {
-            @defer (when paymentMean.type === PaymentMeanType.WERO) {
-              @if (isSelectedPaymentMean(paymentMean)) {
-                <pc-wero-button
-                  [hidden]="pmCount > 0 && !isSelectedPaymentMean(paymentMean)"
-                  [amount]="data().amount"
-                  (submitEvent)="handleSubmit($event)"
-                ></pc-wero-button>
-              }
-            }
-          }
-
-          @case (PaymentMeanType.APPLEPAY) {
-            @defer (when paymentMean.type === PaymentMeanType.APPLEPAY) {
-              <pc-apple-pay
-                [amount]="data().amount"
-                [paymentMeanHref]="paymentMean.href"
-                [hidden]="pmCount > 0 && !isSelectedPaymentMean(paymentMean)"
-                (submitEvent)="handleSubmit($event)"
-                [paymentSessionHref]="paymentSessionHref()"
-              ></pc-apple-pay>
-            }
-          }
-        }
-      </div>
-    }
-  </div>
-}
-
-
-
-mon probmlème c'est que je veux passer le type du payment depuis le sdk en app depuis le route qui contient le paymentmeantype et 
-faire le filtre dans les links de la route qui contient juste l'id. 
-ça me donne des erreurs , car il n'arrivent pas à trouver les input data et links qui sont required. 
- 
