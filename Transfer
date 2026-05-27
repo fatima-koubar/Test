@@ -1,143 +1,29 @@
-import { NgElement, WithProperties } from '@angular/elements';
-import { environment } from 'src/environments/environment';
+case 'ready':
+  console.log("ready received");
 
-export interface TranslationsPayload {
-  iFrameTitle: string;
-  iFramePopinTitle: string;
-}
-
-export class PaymentComponent extends EventTarget {
-  type: string = '';
-
-  private translations?: TranslationsPayload
-
-  constructor(private _paymentSessionId: string) {
-    super();
+  if (routeAlreadyUpdated) {
+    return;
   }
 
-  generate(id: string, paymentMeanType?: string): void {
-    if (!id.match('^[A-Za-z]+[\\w\\-\\:\\.]*$')) {
-      throw new Error("'id' is not a valid HTML id attribute");
-    }
-    const paymentComponent = document.createElement('pc-payment-component') as NgElement & WithProperties<{ paymentSessionId: string, title: string }>;
-    paymentComponent.style.width = '100%';
-    paymentComponent.style.height = '0';
-    paymentComponent.paymentSessionId = this._paymentSessionId;
-    let iframePopin: NgElement;
-    const wrapper = document.getElementById(id);
-    if (wrapper) {
-      wrapper.appendChild(paymentComponent);
-      let acceptedEmitters : Window[] = [];
-      let routeAlreadyUpdated = false;
-      const iframeContent = (paymentComponent.getElementsByTagName("iframe")[0] as HTMLIFrameElement).contentWindow;
-      acceptedEmitters.push(iframeContent!);
-      window.addEventListener('message', (event) => {
-        if (acceptedEmitters.findIndex(x => x === event.source) === -1) {
-          return;
-        }
-        switch (event.data.action) {
-          case 'create':
-            const url = event.data.url;
-            iframePopin = this.createPopinComponent(url, paymentMeanType);
-            const iframePopinContent = (iframePopin.getElementsByTagName("iframe")[0] as HTMLIFrameElement).contentWindow;
-            acceptedEmitters.push(iframePopinContent!)
-            break;
-          case 'resize':
-            const height = event.data.height;
-            const borderRadius = event.data.borderRadius;
-            if (height > 1) {
-              paymentComponent.style.height = height + 'px';
-            }
-            if (borderRadius) {
-              const iframe = paymentComponent.getElementsByTagName('iframe');
-              iframe[0].style.borderRadius = borderRadius;
-              wrapper.style.borderRadius = borderRadius;
-            }
-            break;
-          case 'finalize':
-            if (iframePopin) {
-              setTimeout(() => { iframePopin.remove() }, 1000);
-            }
-            const iframe = paymentComponent.getElementsByTagName('iframe');
-            iframe[0].src = iframe[0].src;
-            break;
-          case 'error':
-            if (iframePopin) {
-              setTimeout(() => {iframePopin.remove();},1000);
-            }
-            const iframe2 = paymentComponent.getElementsByTagName('iframe');
-            iframe2[0].src = environment.moneticoUrl + '/payment-component/payment-session/error';
-            break;
-          case 'notify':
-            if (event.data.eventType === 'paymentMeanSubmitted') {
-              const customEvent = new CustomEvent(event.data.eventType, {
-                detail : {
-                  type: this.type
-                }
-              });
-              this.dispatchEvent(customEvent);
-            } else {
-              const eventType = event.data.eventType;
-              this.dispatchEvent(new Event(eventType));
-            }
-            break;
-          case 'close':
-            if (iframePopin) {
-              iframePopin.remove();
-            }
-            break;
-          case 'sdk-translations':
-            this.translations = event.data.translations as TranslationsPayload;
-            paymentComponent.title = this.translations['iFrameTitle'] + ' ' + paymentMeanType;
-            break;
-          case 'ready':
-            console.log("ready received");
-            if (routeAlreadyUpdated) {
-              return;
-            }
-            routeAlreadyUpdated = true;
-            if (paymentMeanType) {
-              const iframeBis = document.getElementById('pc-iframe') as HTMLIFrameElement;
-              const url = environment.moneticoUrl + '/payment-component/payment-session/' + this._paymentSessionId + '?paymentMeanType=' + paymentMeanType;
-              iframeBis.src = url;
-            }
-              // iframeContent?.postMessage({ action: 'sendPaymentMeanType', paymentMeanType: paymentMeanType ?? undefined }, "*");
-            break;
-          case 'sendType':
-              this.type = event.data.type;
-            break;
-        }
-      });
-    }
+  routeAlreadyUpdated = true;
+
+  const iframe = paymentComponent.getElementsByTagName('iframe')[0] as HTMLIFrameElement;
+
+  if (!iframe) {
+    break;
   }
 
-  private createPopinComponent(url: string, paymentMeanType?: string): NgElement {
-    const iframePopin = document.createElement('pc-redirection-popin') as NgElement & WithProperties<{ url: string, title: string }>;
-    iframePopin.url = url;
-    if (this.translations) {
-      iframePopin.title = this.translations['iFramePopinTitle'] + ' ' + paymentMeanType;
-    }
-    document.body.appendChild(iframePopin);
-    return iframePopin;
-  }
-}
-export class PaymentComponents {
-  private _paymentSessionId: string | undefined;
+  let url =
+    environment.moneticoUrl +
+    '/payment-component/payment-session/' +
+    this._paymentSessionId;
 
-  initialize(paymentSessionId: string): void {
-    if (paymentSessionId.match('^[a-fA-F0-9]{8}-([a-fA-F0-9]{4}-){3}[a-fA-F0-9]{12}|[a-fA-F0-9]{32}$')) {
-      this._paymentSessionId = paymentSessionId;
-    }
-    else {
-      throw new Error("'paymentSessionId' is not a valid UUID");
-    }
+  if (paymentMeanType) {
+    url +=
+      '?paymentMeanType=' +
+      encodeURIComponent(paymentMeanType);
   }
 
-  createComponent(): PaymentComponent {
-    if (!this._paymentSessionId) {
-      throw new Error("'initialize' method was not called before creating component");
-    }
-    return new PaymentComponent(this._paymentSessionId);
-  }
+  iframe.src = url;
 
-}
+  break;
