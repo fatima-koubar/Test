@@ -1,26 +1,71 @@
 export const routes: Routes = [
   {
     path: 'payment-session/:id',
-    component: AppRouterComponent,
-  },
-  {
-    path: 'payment-session/:id/:paymentMeanType',
-    component: AppRouterComponent,
-  },
-  {
-    path: 'payment-session/:id/redirect/popin',
-    component: AppRedirectionComponent,
-  },
-  {
-    path: 'payment-session/:id/apple-pay/popin',
-    component: AppApplePayPopinComponent,
-  },
-  {
-    path: 'payment-session/:id/:paymentMeanType/redirect/popin',
-    component: AppRedirectionComponent,
-  },
-  {
-    path: 'payment-session/:id/:paymentMeanType/apple-pay/popin',
-    component: AppApplePayPopinComponent,
+    children: [
+      /**
+       * /payment-session/:id
+       */
+      {
+        path: '',
+        component: AppRouterComponent,
+      },
+
+      /**
+       * /payment-session/:id/:paymentMeanType
+       */
+      {
+        path: ':paymentMeanType',
+        component: AppRouterComponent,
+      },
+
+      /**
+       * POPINS sans paymentMeanType
+       */
+      {
+        path: 'redirect',
+        children: [
+          {
+            path: 'popin',
+            component: AppRedirectionComponent,
+          },
+        ],
+      },
+      {
+        path: 'apple-pay',
+        children: [
+          {
+            path: 'popin',
+            component: AppApplePayPopinComponent,
+          },
+        ],
+      },
+
+      /**
+       * POPINS avec paymentMeanType
+       */
+      {
+        path: ':paymentMeanType',
+        children: [
+          {
+            path: 'redirect',
+            children: [
+              {
+                path: 'popin',
+                component: AppRedirectionComponent,
+              },
+            ],
+          },
+          {
+            path: 'apple-pay',
+            children: [
+              {
+                path: 'popin',
+                component: AppApplePayPopinComponent,
+              },
+            ],
+          },
+        ],
+      },
+    ],
   },
 ];
