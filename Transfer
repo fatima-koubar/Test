@@ -1,1 +1,26 @@
-
+export const routes: Routes = [
+  {
+    path: 'payment-session/:id',
+    component: AppRouterComponent,
+  },
+  {
+    path: 'payment-session/:id/:paymentMeanType',
+    component: AppRouterComponent,
+  },
+  {
+    path: 'payment-session/:id/redirect/popin',
+    component: AppRedirectionComponent,
+  },
+  {
+    path: 'payment-session/:id/apple-pay/popin',
+    component: AppApplePayPopinComponent,
+  },
+  {
+    path: 'payment-session/:id/:paymentMeanType/redirect/popin',
+    component: AppRedirectionComponent,
+  },
+  {
+    path: 'payment-session/:id/:paymentMeanType/apple-pay/popin',
+    component: AppApplePayPopinComponent,
+  },
+];
