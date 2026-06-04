@@ -1,1 +1,8 @@
 
+export class RecognitionCookiePayloadValidator {
+  assertIsValid(payload: unknown): asserts payload is RecognitionCookiePayload {
+    if (typeof payload !== 'string' || !payload.trim()) {
+      throw new RecognitionCookiePayloadValidationError('recognitionToken cannot be empty.');
+    }
+  }
+}
