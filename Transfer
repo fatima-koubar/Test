@@ -6,3 +6,19 @@ export class RecognitionCookiePayloadValidator {
     }
   }
 }
+
+export class RecognitionCookiePayloadValidator {
+  assertIsValid(payload: unknown): asserts payload is RecognitionCookiePayload {
+    if (payload === null || typeof payload !== 'object') {
+      throw new RecognitionCookiePayloadValidationError('Invalid payload.');
+    }
+
+    const values = Object.values(payload as Record<string, unknown>);
+
+    if (values.some(v => v === '')) {
+      throw new RecognitionCookiePayloadValidationError(
+        'Payload contains empty string values.'
+      );
+    }
+  }
+}
