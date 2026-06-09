@@ -1,98 +1,49 @@
-
-je suis en train d'implementer clicktopay avec mastercard en angular, c'est en sandbox. J'ai la fonction suivante. quand je saisis un mail et je fais appel à cette 
-fonction, tout va bien , je peux loguer identificationRequest dans le tap . mais quand je selectionne un scenario de test, par exemple compte suspendu (mail: inacessible@test)
-j'arrive pas à logguer  identificationRequest, alors que j'ai bien l'id renseigné qui est {"email":"inacessible@test"}. c'est quoi le souci ? 
-
-identifyAcrossSchemes(id: IdentificationInput): Observable<void> {
-    let identificationRequest: Channel;
-    if ('email' in id) {
-      identificationRequest = {
-        type: CHANNEL_TYPES.EMAIL_ADDRESS,
-        value: id.email,
-      };
-    } else {
-      identificationRequest = {
-        type: CHANNEL_TYPES.MOBILE_PHONE_NUMBER,
-        value: id.mobile,
-      };
-    }
-    return from(
-      Promise.all(
-        this._ports.map(async (port) => {
-          return {
-            port,
-            identificationOutput: await firstValueFrom(port.identify(identificationRequest)),
-          };
-        }),
-      ),
-    ).pipe(
-      tap(() => {
-        console.log(identificationRequest);
-        switch (identificationRequest.type) {
-          case CHANNEL_TYPES.EMAIL_ADDRESS:
-            return this._paymentStateStore.setValidationChannelOTP(
-              this._maskingService.maskEmail(identificationRequest.value),
-            );
-          case CHANNEL_TYPES.MOBILE_PHONE_NUMBER:
-            return this._paymentStateStore.setValidationChannelOTP(
-              this._maskingService.maskPhone(identificationRequest.value),
-            );
-        }
-      }),
-      switchMap(async (outputsWithPort) => {
-        const outputsWithPortPresent = outputsWithPort.filter(
-          (outputWithPort) => outputWithPort.identificationOutput.consumerIsPresent,
+identify(channel: Channel): Observable<IdentificationOutput> {
+    switch (channel.value as LogginValues | '') {
+      case LOGGIN_VALUES.ACCOUNT_INACCESSIBLE_INPUT:
+        return throwError(
+          () =>
+            new ClickToPaySDKPortIdentityLookupError(
+              SDK_IDENTITY_LOOKUP_ERROR_TYPES.ACCOUNT_INACCESSIBLE,
+              this.getType(),
+            ),
         );
-
-        if (outputsWithPortPresent.length === 0) {
-          if (
-            this._paymentStateStore.currentStep() === PaymentStep.AUTH ||
-            this._paymentStateStore.currentStep() === PaymentStep.INIT
-          ) {
-            this._paymentStateStore.updateStep(PaymentStep.LOG_NO_CARD, 'NO_ACTIVE_CARDS');
-          }
-          return;
+      case LOGGIN_VALUES.FRAUD:
+        return throwError(
+          () =>
+            new ClickToPaySDKPortIdentityLookupError(
+              SDK_IDENTITY_LOOKUP_ERROR_TYPES.FRAUD,
+              this.getType(),
+            ),
+        );
+      case LOGGIN_VALUES.DEFAULT_ERROR:
+        return throwError(
+          () =>
+            new ClickToPaySDKPortIdentityLookupError(
+              SDK_IDENTITY_LOOKUP_ERROR_TYPES.CONSUMER_ID_MISSING,
+              this.getType(),
+            ),
+        );
+      case '':
+        return throwError(
+          () =>
+            new ClickToPaySDKPortIdentityLookupError(
+              SDK_IDENTITY_LOOKUP_ERROR_TYPES.CONSUMER_ID_MISSING,
+              this.getType(),
+            ),
+        );
+      default:
+        if (
+          channel.value.replace(/(\s|\-*)/g, '') ===
+          LOGGIN_VALUES.WRONG_IDENTIFICATION_INPUT.replace(/(\s|\-*)/g, '')
+        ) {
+          return of<IdentificationOutput>({
+            consumerIsPresent: false,
+          }).pipe(delay(500));
         }
-
-        const now = Date.now();
-        const latestOutputWithPort = outputsWithPortPresent.reduce((closest, outputWithPort) => {
-          if (
-            !(
-              outputWithPort.identificationOutput as {
-                consumerIsPresent: true;
-                lastUsedCardTimestamp?: number;
-              }
-            ).lastUsedCardTimestamp
-          ) {
-            return closest;
-          }
-          if (
-            Math.abs(
-              now -
-                (
-                  outputWithPort.identificationOutput as {
-                    consumerIsPresent: true;
-                    lastUsedCardTimestamp?: number;
-                  }
-                ).lastUsedCardTimestamp!,
-            ) <
-            Math.abs(
-              now -
-                ((
-                  closest.identificationOutput as {
-                    consumerIsPresent: true;
-                    lastUsedCardTimestamp?: number;
-                  }
-                ).lastUsedCardTimestamp ?? 0),
-            )
-          ) {
-            closest = outputWithPort;
-          }
-          return closest;
-        }, outputsWithPortPresent[0]);
-
-        this.setSelectedPort(latestOutputWithPort.port);
-        return firstValueFrom(this.startIdentificationValidation(identificationRequest.type));
-      }),
-    );
+        this._channelMemo.set({ ...channel, value: channel.value });
+        return of<IdentificationOutput>({
+          consumerIsPresent: true,
+        }).pipe(delay(500));
+    }
   }
