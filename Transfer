@@ -1,1 +1,1 @@
- No provider found for `TranslateService`. Source: Standalone[PaymentMeanComponent]
+ No provider found for `InjectionToken env`. Source: Standalone[PaymentMeanComponent]. Path: CardApi -> ApiCallerService -> InjectionToken env.
