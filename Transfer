@@ -1,167 +1,44 @@
-import { fakeAsync, tick } from '@angular/core/testing';
-
-it('should initialize payment means', fakeAsync(() => {
-  fixture.componentRef.setInput('data', mockData);
-  fixture.componentRef.setInput('links', mockLinks);
-  fixture.componentRef.setInput('paymentSessionId', '123');
-
-  fixture.detectChanges();
-
-  tick(); // flush setTimeout
-
-  expect(component.paymentMeans().length).toBe(2);
-}));
-
-
-
-
-I have an error while executing the unit test for this ts file. The error is : 
- An error was thrown in afterAll
-Error: NG0951: Child query result is required but no value is available.
-
-file ts: 
-export class PaymentMeanComponent implements OnInit {
-  readonly data = input.required<PaymentMeanData>();
-  readonly links = input.required<Hateoas>();
-  readonly paymentSessionId = input.required<string>();
-  readonly hateoasLinks: WritableSignal<Hateoas> = signal<Hateoas>({} as Hateoas);
-  readonly generatedPaymentMean = input<string | null | undefined>();
-
-  readonly nextStepEvent = output<Redirection>();
-
-  private readonly _service = inject(PaymentMeanService);
-  private readonly _spinnerService = inject(SpinnerService);
-  protected readonly _urlService = inject(UrlService);
-  private readonly _integrationType = inject(PAYMENT_SESSION_CONTEXT);
-
-  private readonly _alreadySubmitted = signal<boolean>(false);
-  readonly selectedPaymentMean = signal<PaymentMean | undefined>(undefined);
-  readonly showInvisibleIframe = signal<boolean>(false);
-  readonly isReady = signal<boolean>(false);
-
-  readonly paymentMeans: WritableSignal<PaymentMean[]> = signal<PaymentMean[]>([]);
-  readonly paymentSessionHref: WritableSignal<string> = signal<string>('');
-
-  readonly container = viewChild.required('overlay', { read: ViewContainerRef });
-  readonly paymentMeanButton = viewChild.required('paymentMeanButton', {
-    read: ElementRef<HTMLButtonElement>,
-  });
-
-  readonly backgroundColor: Signal<string> = computed(() => {
-    const button = this.paymentMeanButton().nativeElement;
-    return window.getComputedStyle(button).backgroundColor;
-  });
-
-  readonly hoverColor = signal<string>('');
-
-  readonly PaymentMeanType = PAYMENT_MEAN_TYPES;
-
-  async ngOnInit(): Promise<void> {
-    const isPaymentComponent = this._integrationType === INTEGRATION_TYPES.PAYMENT_COMPONENT;
-
-    if (isPaymentComponent && this.generatedPaymentMean()) {
-      const filteredPaymentMean = this.getPaymentMeanByWrapperId(this.generatedPaymentMean());
-      this.hateoasLinks.set(filteredPaymentMean);
-    } else {
-      this.hateoasLinks.set(this.links());
-    }
-    await this.initiate();
-    
-  }
-
-  private async initiate(): Promise<void> {
-    this.paymentMeans.set(
-      (this.hateoasLinks().paymentMeans ?? []).map((pm) =>
-        createPaymentMean(this.getPaymentMeanProps(pm)),
-      ),
-    );
-
-    this.paymentSessionHref.set(this.hateoasLinks().self.href);
-
-    await this._service.applePayloadScript(this.paymentMeans(), this.links());
-    if (this.paymentMeans().length === 1) {
-      this.selectedPaymentMean.set(this.paymentMeans().at(0));
-    }
-    this.isReady.set(true);
-    setTimeout(() => {
-      this.hoverColor.set(rgbaToHslAndAdjust(this.backgroundColor()));
-    });
-  }
-....
-}
-
-
-test file : 
-describe('PaymentMeanComponent', () => {
-  let component: PaymentMeanComponent;
-  let fixture: ComponentFixture<PaymentMeanComponent>;
-  let paymentMeanServiceStub: jasmine.SpyObj<PaymentMeanService>;
-  let paymentSessionStoreStub: jasmine.SpyObj<InstanceType<typeof PaymentSessionStore>>;
-  let urlServiceStub: jasmine.SpyObj<UrlService>;
-
-  const mockLinks = {
-    self: {
-      href: '/payment-session/f5bac8da-9098-4a9c-b5c2-a43a815e1be5',
-    } as HateoasSelf,
-    paymentMeans: [
-      {
-        type: 'card',
-        href: '/collection-session/408b4c2b-aa8e-4d80-8863-56d48b6d74fe/card',
-      },
-      {
-        type: 'wero',
-        href: '/collection-session/408b4c2b-aa8e-4d80-8863-56d48b6d74fe/wero',
-      },
-    ] as Array<HateoasPaymentMean>,
-  } as Hateoas;
-
-  beforeEach(async () => {
-    paymentMeanServiceStub = jasmine.createSpyObj<PaymentMeanService>('PaymentMeanService', [
-      'submitPaymentMean',
-      'collectTechnicalInformation',
-      'provideBrowserData',
-      'applePayloadScript',
-    ]);
-
-    paymentSessionStoreStub = jasmine.createSpyObj<InstanceType<typeof PaymentSessionStore>>(
-      'PaymentSessionStore',
-      ['sandbox', 'setPaymentMeans'],
-    );
-
-    urlServiceStub = jasmine.createSpyObj<UrlService>('UrlService', ['getAssetsImgURL']);
-
-    await TestBed.configureTestingModule({
-      imports: [PaymentMeanComponent],
-      providers: [
-        { provide: PAYMENT_SESSION_CONTEXT, useValue: INTEGRATION_TYPES.PAYMENT_PAGE },
-        { provide: DOCUMENT, useValue: document },
-        { provide: PaymentMeanService, useValue: paymentMeanServiceStub },
-        { provide: PaymentSessionStore, useValue: paymentSessionStoreStub },
-        { provide: UrlService, useValue: urlServiceStub },
-      ],
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(PaymentMeanComponent);
-    component = fixture.componentInstance;
-
-    fixture.componentRef.setInput('links', mockLinks);
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
-  describe('ngOnInit', () => {
-    it('should initialize payment means when not in PAYMENT_COMPONENT mode', async () => {
-      await component.ngOnInit();
-
-      expect(component.paymentMeans().length).toBe(2);
-      expect(component.paymentSessionHref()).toBe(
-        '/payment-session/f5bac8da-9098-4a9c-b5c2-a43a815e1be5',
-      );
-      expect(component.isReady()).toBeTrue();
-    });
-  });
-});
-
-
+error properties: Object({ code: -951, longStack: 'Error: NG0951: Child query result is required but no value is available. Find more at https://v20.angular.dev/errors/NG0951
+            at Object.computation (node_modules/@angular/core/fesm2022/debug_node.mjs:15769:19)
+            at Object.producerRecomputeValue (node_modules/@angular/core/fesm2022/signal.mjs:468:33)
+            at producerUpdateValueVersion (node_modules/@angular/core/fesm2022/signal.mjs:158:10)
+            at PaymentMeanComponent.paymentMeanButton (node_modules/@angular/core/fesm2022/signal.mjs:408:9)
+            at Object.computation (projects/payment-component/lib/payment-mean/components/payment-mean/payment-mean.component.ts:89:25)
+            at Object.producerRecomputeValue (node_modules/@angul ...
+            at Object.computation (node_modules/@angular/core/fesm2022/debug_node.mjs:15769:19)
+            at Object.producerRecomputeValue (node_modules/@angular/core/fesm2022/signal.mjs:468:33)
+            at producerUpdateValueVersion (node_modules/@angular/core/fesm2022/signal.mjs:158:10)
+            at PaymentMeanComponent.paymentMeanButton (node_modules/@angular/core/fesm2022/signal.mjs:408:9)
+            at Object.computation (projects/payment-component/lib/payment-mean/components/payment-mean/payment-mean.component.ts:89:25)
+            at Object.producerRecomputeValue (node_modules/@angular/core/fesm2022/signal.mjs:468:33)
+            at producerUpdateValueVersion (node_modules/@angular/core/fesm2022/signal.mjs:158:10)
+            at PaymentMeanComponent.backgroundColor (node_modules/@angular/core/fesm2022/signal.mjs:408:9)
+            at apply (projects/payment-component/lib/payment-mean/components/payment-mean/payment-mean.component.ts:108:51)
+            at timer (node_modules/zone.js/fesm2015/zone.js:1809:37)
+            at ____________________Elapsed_0_ms__At__Tue_Jun_09_2026_10_44_37_GMT_0200__Central_European_Summer_Time_ (http://localhost)
+            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone-testing.js:1906:26)
+            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
+            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone.js:271:65)
+            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
+            at ZoneImpl.scheduleTask (node_modules/zone.js/fesm2015/zone.js:205:43)
+            at ZoneImpl.scheduleMacroTask (node_modules/zone.js/fesm2015/zone.js:228:25)
+            at scheduleMacroTaskWithCurrentZone (node_modules/zone.js/fesm2015/zone.js:691:25)
+            at node_modules/zone.js/fesm2015/zone.js:1834:26
+            at ____________________Elapsed_0_ms__At__Tue_Jun_09_2026_10_44_37_GMT_0200__Central_European_Summer_Time_ (http://localhost)
+            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone-testing.js:1906:26)
+            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
+            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone.js:271:65)
+            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
+            at ZoneImpl.scheduleTask (node_modules/zone.js/fesm2015/zone.js:205:43)
+            at ZoneImpl.scheduleMicroTask (node_modules/zone.js/fesm2015/zone.js:225:25)
+            at scheduleResolveOrReject (node_modules/zone.js/fesm2015/zone.js:2528:18)
+            at resolvePromise (node_modules/zone.js/fesm2015/zone.js:2462:25)
+            at ____________________Elapsed_0_ms__At__Tue_Jun_09_2026_10_44_37_GMT_0200__Central_European_Summer_Time_ (http://localhost)
+            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone-testing.js:1906:26)
+            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
+            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone.js:271:65)
+            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
+            at ZoneImpl.scheduleTask (node_modules/zone.js/fesm2015/zone.js:205:43)
+            at ZoneImpl.scheduleMicroTask (node_modules/zone.js/fesm2015/zone.js:225:25)
+            at scheduleResolveOrReject (node_modules/zone.js/fesm2015/zone.js:2528:18)
+            at ZoneAwarePromise.then (node_modules/zone.js/fesm2015/zone.js:2733:21)
