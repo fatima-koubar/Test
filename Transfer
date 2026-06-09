@@ -1,1 +1,150 @@
+I have an error while executing the unit test for this ts file. The error is : 
+ An error was thrown in afterAll
+Error: NG0951: Child query result is required but no value is available.
+
+file ts: 
+export class PaymentMeanComponent implements OnInit {
+  readonly data = input.required<PaymentMeanData>();
+  readonly links = input.required<Hateoas>();
+  readonly paymentSessionId = input.required<string>();
+  readonly hateoasLinks: WritableSignal<Hateoas> = signal<Hateoas>({} as Hateoas);
+  readonly generatedPaymentMean = input<string | null | undefined>();
+
+  readonly nextStepEvent = output<Redirection>();
+
+  private readonly _service = inject(PaymentMeanService);
+  private readonly _spinnerService = inject(SpinnerService);
+  protected readonly _urlService = inject(UrlService);
+  private readonly _integrationType = inject(PAYMENT_SESSION_CONTEXT);
+
+  private readonly _alreadySubmitted = signal<boolean>(false);
+  readonly selectedPaymentMean = signal<PaymentMean | undefined>(undefined);
+  readonly showInvisibleIframe = signal<boolean>(false);
+  readonly isReady = signal<boolean>(false);
+
+  readonly paymentMeans: WritableSignal<PaymentMean[]> = signal<PaymentMean[]>([]);
+  readonly paymentSessionHref: WritableSignal<string> = signal<string>('');
+
+  readonly container = viewChild.required('overlay', { read: ViewContainerRef });
+  readonly paymentMeanButton = viewChild.required('paymentMeanButton', {
+    read: ElementRef<HTMLButtonElement>,
+  });
+
+  readonly backgroundColor: Signal<string> = computed(() => {
+    const button = this.paymentMeanButton().nativeElement;
+    return window.getComputedStyle(button).backgroundColor;
+  });
+
+  readonly hoverColor = signal<string>('');
+
+  readonly PaymentMeanType = PAYMENT_MEAN_TYPES;
+
+  async ngOnInit(): Promise<void> {
+    const isPaymentComponent = this._integrationType === INTEGRATION_TYPES.PAYMENT_COMPONENT;
+
+    if (isPaymentComponent && this.generatedPaymentMean()) {
+      const filteredPaymentMean = this.getPaymentMeanByWrapperId(this.generatedPaymentMean());
+      this.hateoasLinks.set(filteredPaymentMean);
+    } else {
+      this.hateoasLinks.set(this.links());
+    }
+    await this.initiate();
+    
+  }
+
+  private async initiate(): Promise<void> {
+    this.paymentMeans.set(
+      (this.hateoasLinks().paymentMeans ?? []).map((pm) =>
+        createPaymentMean(this.getPaymentMeanProps(pm)),
+      ),
+    );
+
+    this.paymentSessionHref.set(this.hateoasLinks().self.href);
+
+    await this._service.applePayloadScript(this.paymentMeans(), this.links());
+    if (this.paymentMeans().length === 1) {
+      this.selectedPaymentMean.set(this.paymentMeans().at(0));
+    }
+    this.isReady.set(true);
+    setTimeout(() => {
+      this.hoverColor.set(rgbaToHslAndAdjust(this.backgroundColor()));
+    });
+  }
+....
+}
+
+
+test file : 
+describe('PaymentMeanComponent', () => {
+  let component: PaymentMeanComponent;
+  let fixture: ComponentFixture<PaymentMeanComponent>;
+  let paymentMeanServiceStub: jasmine.SpyObj<PaymentMeanService>;
+  let paymentSessionStoreStub: jasmine.SpyObj<InstanceType<typeof PaymentSessionStore>>;
+  let urlServiceStub: jasmine.SpyObj<UrlService>;
+
+  const mockLinks = {
+    self: {
+      href: '/payment-session/f5bac8da-9098-4a9c-b5c2-a43a815e1be5',
+    } as HateoasSelf,
+    paymentMeans: [
+      {
+        type: 'card',
+        href: '/collection-session/408b4c2b-aa8e-4d80-8863-56d48b6d74fe/card',
+      },
+      {
+        type: 'wero',
+        href: '/collection-session/408b4c2b-aa8e-4d80-8863-56d48b6d74fe/wero',
+      },
+    ] as Array<HateoasPaymentMean>,
+  } as Hateoas;
+
+  beforeEach(async () => {
+    paymentMeanServiceStub = jasmine.createSpyObj<PaymentMeanService>('PaymentMeanService', [
+      'submitPaymentMean',
+      'collectTechnicalInformation',
+      'provideBrowserData',
+      'applePayloadScript',
+    ]);
+
+    paymentSessionStoreStub = jasmine.createSpyObj<InstanceType<typeof PaymentSessionStore>>(
+      'PaymentSessionStore',
+      ['sandbox', 'setPaymentMeans'],
+    );
+
+    urlServiceStub = jasmine.createSpyObj<UrlService>('UrlService', ['getAssetsImgURL']);
+
+    await TestBed.configureTestingModule({
+      imports: [PaymentMeanComponent],
+      providers: [
+        { provide: PAYMENT_SESSION_CONTEXT, useValue: INTEGRATION_TYPES.PAYMENT_PAGE },
+        { provide: DOCUMENT, useValue: document },
+        { provide: PaymentMeanService, useValue: paymentMeanServiceStub },
+        { provide: PaymentSessionStore, useValue: paymentSessionStoreStub },
+        { provide: UrlService, useValue: urlServiceStub },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(PaymentMeanComponent);
+    component = fixture.componentInstance;
+
+    fixture.componentRef.setInput('links', mockLinks);
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  describe('ngOnInit', () => {
+    it('should initialize payment means when not in PAYMENT_COMPONENT mode', async () => {
+      await component.ngOnInit();
+
+      expect(component.paymentMeans().length).toBe(2);
+      expect(component.paymentSessionHref()).toBe(
+        '/payment-session/f5bac8da-9098-4a9c-b5c2-a43a815e1be5',
+      );
+      expect(component.isReady()).toBeTrue();
+    });
+  });
+});
+
 
