@@ -1,40 +1,34 @@
-@if (isReady() && paymentMeans()) {
-  <div class="mp_acc_paymtmean ei_overflowhidden">
-    <!-- Item d'accordéon -->
-    @for (paymentMean of paymentMeans(); track paymentMean; let pmCount = $count) {
-      <div
-        #overlay
-        class="ei_relative"
-        [class]="{'mp_acc_paymtmean_item': true, 'mp_acc_paymtmean_item_selected': isSelectedPaymentMean(paymentMean), 'mp_acc_paymtmean_item_uniq': pmCount == 1}"
-      >
-        <span role="heading" aria-level="3" class="heading">
-          @if ($count > 1) {
-            <button
-              #paymentMeanButton
-              type="button"
-              (click)="toggleSelectedPaymentMean(paymentMean)"
-              [attr.aria-expanded]="isSelectedPaymentMean(paymentMean)"
-              [attr.aria-disabled]="isSelectedPaymentMean(paymentMean)"
-              class="mp_acc_paymtmean_button g"
-              [class]="{'mp_acc_paymtmean_item_collapsed': !isSelectedPaymentMean(paymentMean)}"
-              [ngStyle]="{'--btn-hover': hoverColor()}"
-              [attr.id]="paymentMean.id"
-            >
-              <span
-                class="mp_acc_paymtmean_header_b mp_acc_paymtmean_button_picto_choice"
-                aria-hidden="true"
-              ></span>
-              <span class="mp_acc_paymtmean_button_label">
-                {{ paymentMean.type | paymentMeanText: $any(paymentMean).sctType | translate }}
-              </span>
+it('should initialize payment means', fakeAsync(() => {
+  paymentMeanServiceStub.applePayloadScript.and.resolveTo();
 
-              @if (paymentMean.type === PaymentMeanType.CARD) {
-                <span class="mp_acc_paymtmean_button_container_img">
-                  <img
-                    [src]="_urlService.getAssetsImgURL('card/card.svg')"
-                    [alt]="'PAYMENT_MEANS.CARD.IMAGES.CARD' | translate"
-                  />
-                </span>
+  fixture.componentRef.setInput('data', {
+    amount: 100,
+  } as PaymentMeanData);
+
+  fixture.componentRef.setInput('links', mockLinks);
+
+  fixture.componentRef.setInput(
+    'paymentSessionId',
+    'f5bac8da-9098-4a9c-b5c2-a43a815e1be5',
+  );
+
+  fixture.detectChanges();
+
+  tick();
+  fixture.detectChanges();
+
+  expect(component.paymentMeans().length).toBe(2);
+  expect(component.isReady()).toBeTrue();
+}));
+
+
+
+
+
+
+
+
+</span>
               } @else if (paymentMean.type === PaymentMeanType.PAYPAL) {
                 <span class="mp_acc_paymtmean_button_container_img">
                   <img
