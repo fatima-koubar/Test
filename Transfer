@@ -1,3 +1,14 @@
+
+afterNextRender(() => {
+  this.hoverColor.set(
+    rgbaToHslAndAdjust(
+      window.getComputedStyle(
+        this.paymentMeanButton().nativeElement
+      ).backgroundColor
+    )
+  );
+});
+
 j'ai ce fichier ts, je veux garder le required pour paumentMeanButton
 
 export class PaymentMeanComponent implements OnInit {
