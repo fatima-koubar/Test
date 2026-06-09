@@ -1,4 +1,11 @@
- error properties: Object({ longStack: 'TypeError: Failed to execute 'getComputedStyle' on 'Window': parameter 1 is not of type 'Element'.
+paymentMeanServiceStub.applePayloadScript.and.resolveTo();
+
+spyOn(window, 'getComputedStyle').and.returnValue({
+  backgroundColor: 'rgb(0, 0, 0)',
+} as CSSStyleDeclaration);
+
+
+error properties: Object({ longStack: 'TypeError: Failed to execute 'getComputedStyle' on 'Window': parameter 1 is not of type 'Element'.
             at Object.computation (projects/payment-component/lib/payment-mean/components/payment-mean/payment-mean.component.ts:90:19)
             at Object.producerRecomputeValue (node_modules/@angular/core/fesm2022/signal.mjs:468:33)
             at producerUpdateValueVersion (node_modules/@angular/core/fesm2022/signal.mjs:158:10)
