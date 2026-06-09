@@ -1,3 +1,20 @@
+import { fakeAsync, tick } from '@angular/core/testing';
+
+it('should initialize payment means', fakeAsync(() => {
+  fixture.componentRef.setInput('data', mockData);
+  fixture.componentRef.setInput('links', mockLinks);
+  fixture.componentRef.setInput('paymentSessionId', '123');
+
+  fixture.detectChanges();
+
+  tick(); // flush setTimeout
+
+  expect(component.paymentMeans().length).toBe(2);
+}));
+
+
+
+
 I have an error while executing the unit test for this ts file. The error is : 
  An error was thrown in afterAll
 Error: NG0951: Child query result is required but no value is available.
