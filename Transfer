@@ -1,44 +1,405 @@
-error properties: Object({ code: -951, longStack: 'Error: NG0951: Child query result is required but no value is available. Find more at https://v20.angular.dev/errors/NG0951
-            at Object.computation (node_modules/@angular/core/fesm2022/debug_node.mjs:15769:19)
-            at Object.producerRecomputeValue (node_modules/@angular/core/fesm2022/signal.mjs:468:33)
-            at producerUpdateValueVersion (node_modules/@angular/core/fesm2022/signal.mjs:158:10)
-            at PaymentMeanComponent.paymentMeanButton (node_modules/@angular/core/fesm2022/signal.mjs:408:9)
-            at Object.computation (projects/payment-component/lib/payment-mean/components/payment-mean/payment-mean.component.ts:89:25)
-            at Object.producerRecomputeValue (node_modules/@angul ...
-            at Object.computation (node_modules/@angular/core/fesm2022/debug_node.mjs:15769:19)
-            at Object.producerRecomputeValue (node_modules/@angular/core/fesm2022/signal.mjs:468:33)
-            at producerUpdateValueVersion (node_modules/@angular/core/fesm2022/signal.mjs:158:10)
-            at PaymentMeanComponent.paymentMeanButton (node_modules/@angular/core/fesm2022/signal.mjs:408:9)
-            at Object.computation (projects/payment-component/lib/payment-mean/components/payment-mean/payment-mean.component.ts:89:25)
-            at Object.producerRecomputeValue (node_modules/@angular/core/fesm2022/signal.mjs:468:33)
-            at producerUpdateValueVersion (node_modules/@angular/core/fesm2022/signal.mjs:158:10)
-            at PaymentMeanComponent.backgroundColor (node_modules/@angular/core/fesm2022/signal.mjs:408:9)
-            at apply (projects/payment-component/lib/payment-mean/components/payment-mean/payment-mean.component.ts:108:51)
-            at timer (node_modules/zone.js/fesm2015/zone.js:1809:37)
-            at ____________________Elapsed_0_ms__At__Tue_Jun_09_2026_10_44_37_GMT_0200__Central_European_Summer_Time_ (http://localhost)
-            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone-testing.js:1906:26)
-            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
-            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone.js:271:65)
-            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
-            at ZoneImpl.scheduleTask (node_modules/zone.js/fesm2015/zone.js:205:43)
-            at ZoneImpl.scheduleMacroTask (node_modules/zone.js/fesm2015/zone.js:228:25)
-            at scheduleMacroTaskWithCurrentZone (node_modules/zone.js/fesm2015/zone.js:691:25)
-            at node_modules/zone.js/fesm2015/zone.js:1834:26
-            at ____________________Elapsed_0_ms__At__Tue_Jun_09_2026_10_44_37_GMT_0200__Central_European_Summer_Time_ (http://localhost)
-            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone-testing.js:1906:26)
-            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
-            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone.js:271:65)
-            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
-            at ZoneImpl.scheduleTask (node_modules/zone.js/fesm2015/zone.js:205:43)
-            at ZoneImpl.scheduleMicroTask (node_modules/zone.js/fesm2015/zone.js:225:25)
-            at scheduleResolveOrReject (node_modules/zone.js/fesm2015/zone.js:2528:18)
-            at resolvePromise (node_modules/zone.js/fesm2015/zone.js:2462:25)
-            at ____________________Elapsed_0_ms__At__Tue_Jun_09_2026_10_44_37_GMT_0200__Central_European_Summer_Time_ (http://localhost)
-            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone-testing.js:1906:26)
-            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
-            at Object.onScheduleTask (node_modules/zone.js/fesm2015/zone.js:271:65)
-            at _ZoneDelegate.scheduleTask (node_modules/zone.js/fesm2015/zone.js:382:51)
-            at ZoneImpl.scheduleTask (node_modules/zone.js/fesm2015/zone.js:205:43)
-            at ZoneImpl.scheduleMicroTask (node_modules/zone.js/fesm2015/zone.js:225:25)
-            at scheduleResolveOrReject (node_modules/zone.js/fesm2015/zone.js:2528:18)
-            at ZoneAwarePromise.then (node_modules/zone.js/fesm2015/zone.js:2733:21)
+@if (isReady() && paymentMeans()) {
+  <div class="mp_acc_paymtmean ei_overflowhidden">
+    <!-- Item d'accordéon -->
+    @for (paymentMean of paymentMeans(); track paymentMean; let pmCount = $count) {
+      <div
+        #overlay
+        class="ei_relative"
+        [class]="{'mp_acc_paymtmean_item': true, 'mp_acc_paymtmean_item_selected': isSelectedPaymentMean(paymentMean), 'mp_acc_paymtmean_item_uniq': pmCount == 1}"
+      >
+        <span role="heading" aria-level="3" class="heading">
+          @if ($count > 1) {
+            <button
+              #paymentMeanButton
+              type="button"
+              (click)="toggleSelectedPaymentMean(paymentMean)"
+              [attr.aria-expanded]="isSelectedPaymentMean(paymentMean)"
+              [attr.aria-disabled]="isSelectedPaymentMean(paymentMean)"
+              class="mp_acc_paymtmean_button g"
+              [class]="{'mp_acc_paymtmean_item_collapsed': !isSelectedPaymentMean(paymentMean)}"
+              [ngStyle]="{'--btn-hover': hoverColor()}"
+              [attr.id]="paymentMean.id"
+            >
+              <span
+                class="mp_acc_paymtmean_header_b mp_acc_paymtmean_button_picto_choice"
+                aria-hidden="true"
+              ></span>
+              <span class="mp_acc_paymtmean_button_label">
+                {{ paymentMean.type | paymentMeanText: $any(paymentMean).sctType | translate }}
+              </span>
+
+              @if (paymentMean.type === PaymentMeanType.CARD) {
+                <span class="mp_acc_paymtmean_button_container_img">
+                  <img
+                    [src]="_urlService.getAssetsImgURL('card/card.svg')"
+                    [alt]="'PAYMENT_MEANS.CARD.IMAGES.CARD' | translate"
+                  />
+                </span>
+              } @else if (paymentMean.type === PaymentMeanType.PAYPAL) {
+                <span class="mp_acc_paymtmean_button_container_img">
+                  <img
+                    [src]="_urlService.getAssetsImgURL('picto/logo_paypal.svg')"
+                    [alt]="'PAYMENT_MEANS.CARD.IMAGES.PAYPAL' | translate"
+                  />
+                </span>
+              } @else if (paymentMean.type === PaymentMeanType.WERO) {
+                <span class="mp_acc_paymtmean_button_container_img">
+                  <img
+                    [src]="_urlService.getAssetsImgURL('picto/logo_wero.svg')"
+                    [alt]="'PAYMENT_MEANS.CARD.IMAGES.WERO' | translate"
+                  />
+                </span>
+              } @else if (paymentMean.type === PaymentMeanType.APPLEPAY) {
+                <span class="mp_acc_paymtmean_button_container_img">
+                  <img
+                    [src]="_urlService.getAssetsImgURL('picto/logo_apple_pay.svg')"
+                    [alt]="'PAYMENT_MEANS.CARD.IMAGES.APPLE_PAY' | translate"
+                  />
+                </span>
+              } @else if (getLogoPaymentMean(paymentMean) != null) {
+                <span
+                  class="mp_acc_paymtmean_header_a mp_acc_paymtmean_button_container_img"
+                  [class]="getLogoPaymentMean(paymentMean)"
+                  aria-hidden="true"
+                ></span>
+              }
+            </button>
+          } @else {
+            <div class="mp_acc_paymtmean_button g">
+              <span class="mp_acc_paymtmean_button_label">
+                {{ paymentMean.type | paymentMeanText: $any(paymentMean).sctType | translate }}
+              </span>
+
+              @if (paymentMean.type === PaymentMeanType.CARD) {
+                <span class="mp_acc_paymtmean_button_container_img">
+                  <img
+                    [src]="_urlService.getAssetsImgURL('card/card.svg')"
+                    [alt]="'PAYMENT_MEANS.CARD.IMAGES.CARD' | translate"
+                  />
+                </span>
+              } @else if (paymentMean.type === PaymentMeanType.PAYPAL) {
+                <span class="mp_acc_paymtmean_button_container_img">
+                  <img
+                    [src]="_urlService.getAssetsImgURL('picto/logo_paypal.svg')"
+                    [alt]="'PAYMENT_MEANS.CARD.IMAGES.PAYPAL' | translate"
+                  />
+                </span>
+              } @else if (paymentMean.type === PaymentMeanType.WERO) {
+                <span class="mp_acc_paymtmean_button_container_img">
+                  <img
+                    [src]="_urlService.getAssetsImgURL('picto/logo_wero.svg')"
+                    [alt]="'PAYMENT_MEANS.CARD.IMAGES.WERO' | translate"
+                  />
+                </span>
+              } @else if (paymentMean.type === PaymentMeanType.APPLEPAY) {
+                <span class="mp_acc_paymtmean_button_container_img">
+                  <img
+                    [src]="_urlService.getAssetsImgURL('picto/logo_apple_pay.svg')"
+                    [alt]="'PAYMENT_MEANS.CARD.IMAGES.APPLE_PAY' | translate"
+                  />
+                </span>
+              } @else if (getLogoPaymentMean(paymentMean) != null) {
+                <span
+                  class="mp_acc_paymtmean_header_a mp_acc_paymtmean_button_container_img"
+                  [class]="getLogoPaymentMean(paymentMean)"
+                  aria-hidden="true"
+                ></span>
+              }
+            </div>
+          }
+        </span>
+
+        @switch (paymentMean.type) {
+          @case (PaymentMeanType.PAYMENT_INITIATION) {
+            @defer (when paymentMean.type === PaymentMeanType.PAYMENT_INITIATION) {
+              <pc-payment-initiation
+                [paymentMeanHref]="paymentMean.href"
+                [hidden]="pmCount > 0 && !isSelectedPaymentMean(paymentMean)"
+                [amount]="data().amount"
+                (submitEvent)="handleSubmit($event)"
+              ></pc-payment-initiation>
+            }
+          }
+
+          @case (PaymentMeanType.CARD) {
+            @defer (when paymentMean.type === PaymentMeanType.CARD) {
+              <pc-card
+                [paymentMeanHref]="paymentMean.href"
+                [hidden]="pmCount > 0 && !isSelectedPaymentMean(paymentMean)"
+                [amount]="data().amount"
+                (submitEvent)="handleSubmit($event)"
+                (provideBrowserDataEvent)="handleProvideBrowserData()"
+              ></pc-card>
+            }
+          }
+
+          @case (PaymentMeanType.PAYPAL) {
+            @defer (when paymentMean.type === PaymentMeanType.PAYPAL) {
+              <pc-paypal-button
+                [hidden]="pmCount > 0 && !isSelectedPaymentMean(paymentMean)"
+                [amount]="data().amount"
+                (submitEvent)="handleSubmit($event)"
+              ></pc-paypal-button>
+            }
+          }
+
+          @case (PaymentMeanType.WERO) {
+            @defer (when paymentMean.type === PaymentMeanType.WERO) {
+              @if (isSelectedPaymentMean(paymentMean)) {
+                <pc-wero-button
+                  [hidden]="pmCount > 0 && !isSelectedPaymentMean(paymentMean)"
+                  [amount]="data().amount"
+                  (submitEvent)="handleSubmit($event)"
+                ></pc-wero-button>
+              }
+            }
+          }
+
+          @case (PaymentMeanType.APPLEPAY) {
+            @defer (when paymentMean.type === PaymentMeanType.APPLEPAY) {
+              <pc-apple-pay
+                [amount]="data().amount"
+                [paymentMeanHref]="paymentMean.href"
+                [hidden]="pmCount > 0 && !isSelectedPaymentMean(paymentMean)"
+                (submitEvent)="handleSubmit($event)"
+                [paymentSessionHref]="paymentSessionHref()"
+              ></pc-apple-pay>
+            }
+          }
+        }
+      </div>
+    }
+  </div>
+}
+
+@if (showInvisibleIframe()) {
+  <pc-invisible-iframe
+    [paymentSessionId]="paymentSessionId()"
+    (iframeProcessDoneEvent)="invisibleIframeCallback()"
+  ></pc-invisible-iframe>
+}
+
+
+
+file ts: 
+import {
+  Component,
+  ElementRef,
+  OnInit,
+  Signal,
+  ViewContainerRef,
+  WritableSignal,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { TranslatePipe } from '@ngx-translate/core';
+import { ApplePayComponent } from '../../../apple-pay/components/apple-pay.component';
+import { CardComponent } from '../../../card/components/card/card.component';
+import { InvisibleIframe } from '../../../card/components/invisible-iframe/invisible-iframe.component';
+import { PaymentMeanData, PaymentMeanPipe } from '../../../core';
+import { UrlService } from '../../../core/services/url.service';
+import {
+  ExternalRedirection,
+  Hateoas,
+  HateoasPaymentMean,
+  HateoasPaymentMeanApplePay,
+  HateoasPaymentMeanPaymentInitiation,
+  INTEGRATION_TYPES,
+  PAYMENT_MEAN_TYPES,
+  PaymentMean,
+  PaymentMeanType,
+  RECOMMENDED_IMPLEMENTATIONS,
+  Redirection,
+  createPaymentMean,
+} from '../../../domain';
+import { PaymentInitiationComponent } from '../../../payment-initiation/components/payment-initiation/payment-initiation.component';
+import { PaypalButtonComponent } from '../../../paypal/components/button/button.component';
+import { SpinnerService } from '../../../spinner/spinner.service';
+import { WeroButtonComponent } from '../../../wero/component/button/button.component';
+import { rgbaToHslAndAdjust } from '../../utils/color-conversion.utils';
+import { PaymentMeanService } from '../../payment-mean.service';
+import { PAYMENT_SESSION_CONTEXT } from '../../../../public-api';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  selector: 'pc-payment-mean',
+  templateUrl: './payment-mean.component.html',
+  styleUrls: ['./payment-mean.component.scss'],
+  standalone: true,
+  imports: [
+    PaymentInitiationComponent,
+    CardComponent,
+    InvisibleIframe,
+    PaymentMeanPipe,
+    TranslatePipe,
+    PaypalButtonComponent,
+    ApplePayComponent,
+    WeroButtonComponent,
+    CommonModule,
+  ],
+})
+export class PaymentMeanComponent implements OnInit {
+  readonly data = input.required<PaymentMeanData>();
+  readonly links = input.required<Hateoas>();
+  readonly paymentSessionId = input.required<string>();
+  readonly hateoasLinks: WritableSignal<Hateoas> = signal<Hateoas>({} as Hateoas);
+  readonly generatedPaymentMean = input<string | null | undefined>();
+
+  readonly nextStepEvent = output<Redirection>();
+
+  private readonly _service = inject(PaymentMeanService);
+  private readonly _spinnerService = inject(SpinnerService);
+  protected readonly _urlService = inject(UrlService);
+  private readonly _integrationType = inject(PAYMENT_SESSION_CONTEXT);
+
+  private readonly _alreadySubmitted = signal<boolean>(false);
+  readonly selectedPaymentMean = signal<PaymentMean | undefined>(undefined);
+  readonly showInvisibleIframe = signal<boolean>(false);
+  readonly isReady = signal<boolean>(false);
+
+  readonly paymentMeans: WritableSignal<PaymentMean[]> = signal<PaymentMean[]>([]);
+  readonly paymentSessionHref: WritableSignal<string> = signal<string>('');
+
+  readonly container = viewChild.required('overlay', { read: ViewContainerRef });
+  readonly paymentMeanButton = viewChild.required('paymentMeanButton', {
+    read: ElementRef<HTMLButtonElement>,
+  });
+
+  readonly backgroundColor: Signal<string> = computed(() => {
+    const button = this.paymentMeanButton().nativeElement;
+    return window.getComputedStyle(button).backgroundColor;
+  });
+
+  readonly hoverColor = signal<string>('');
+
+  readonly PaymentMeanType = PAYMENT_MEAN_TYPES;
+
+  async ngOnInit(): Promise<void> {
+    const isPaymentComponent = this._integrationType === INTEGRATION_TYPES.PAYMENT_COMPONENT;
+
+    if (isPaymentComponent && this.generatedPaymentMean()) {
+      const filteredPaymentMean = this.getPaymentMeanByWrapperId(this.generatedPaymentMean());
+      this.hateoasLinks.set(filteredPaymentMean);
+    } else {
+      this.hateoasLinks.set(this.links());
+    }
+    await this.initiate();
+    setTimeout(() => {
+      this.hoverColor.set(rgbaToHslAndAdjust(this.backgroundColor()));
+    });
+  }
+
+  private async initiate(): Promise<void> {
+    this.paymentMeans.set(
+      (this.hateoasLinks().paymentMeans ?? []).map((pm) =>
+        createPaymentMean(this.getPaymentMeanProps(pm)),
+      ),
+    );
+
+    this.paymentSessionHref.set(this.hateoasLinks().self.href);
+
+    await this._service.applePayloadScript(this.paymentMeans(), this.links());
+    if (this.paymentMeans().length === 1) {
+      this.selectedPaymentMean.set(this.paymentMeans().at(0));
+    }
+    this.isReady.set(true);
+  }
+
+  private getPaymentMeanByWrapperId(paymentMeanType: string | null | undefined) {
+    return {
+      ...this.links(),
+      asProps: this.links().asProps,
+      paymentMeans: !paymentMeanType
+        ? []
+        : this.links().paymentMeans?.filter((pm) => pm.type === paymentMeanType),
+    };
+  }
+
+  private getPaymentMeanProps(hateoasPaymentMean: HateoasPaymentMean) {
+    const basePaymentMean = {
+      type: hateoasPaymentMean.type,
+      href: hateoasPaymentMean.href,
+    };
+
+    if (hateoasPaymentMean instanceof HateoasPaymentMeanPaymentInitiation) {
+      return {
+        ...basePaymentMean,
+        sctType: hateoasPaymentMean.sctType,
+      };
+    }
+    if (hateoasPaymentMean instanceof HateoasPaymentMeanApplePay) {
+      return {
+        ...basePaymentMean,
+        merchantIdentifier: hateoasPaymentMean.merchantIdentifier,
+      };
+    }
+    return basePaymentMean;
+  }
+
+  private redirect(redirection: Redirection) {
+    if (
+      !(redirection instanceof ExternalRedirection) ||
+      redirection.redirection.recommendedImplementation !==
+        RECOMMENDED_IMPLEMENTATIONS.INVISIBLE_IFRAME
+    ) {
+      this.showInvisibleIframe.set(false);
+      this.nextStepEvent.emit(redirection);
+      return;
+    }
+    this.showInvisibleIframe.set(true);
+  }
+
+  toggleSelectedPaymentMean(paymentMean: PaymentMean): void {
+    if (this.isSelectedPaymentMean(paymentMean)) {
+      this.selectedPaymentMean.set(undefined);
+    } else {
+      this.selectedPaymentMean.set(paymentMean);
+    }
+  }
+
+  isSelectedPaymentMean(paymentMean: PaymentMean): Boolean {
+    return this.selectedPaymentMean() === paymentMean;
+  }
+
+  getLogoPaymentMean(paymentMean: PaymentMean): string | null {
+    switch (paymentMean.type) {
+      case PAYMENT_MEAN_TYPES.PAYMENT_INITIATION:
+        return 'mp_picto_transfer';
+      case PAYMENT_MEAN_TYPES.CARD:
+        return 'mp_picto_card';
+      case PAYMENT_MEAN_TYPES.PAYPAL:
+        return 'mp_picto_paypal';
+      case PAYMENT_MEAN_TYPES.APPLEPAY:
+        return 'mp_picto_apple_pay';
+      case PAYMENT_MEAN_TYPES.WERO:
+        return 'mp_picto_wero';
+      default:
+        return null;
+    }
+  }
+
+  async handleSubmit(type: PaymentMeanType) {
+    if (this._alreadySubmitted()) {
+      return;
+    }
+    window.parent.postMessage({ action: 'notify', eventType: 'paymentMeanSubmitted' }, '*');
+    window.parent.postMessage({ action: 'sendType', type: type }, '*');
+    this._alreadySubmitted.set(true);
+    this._spinnerService.injectComponent(this.container());
+    const redirection = await this._service.submitPaymentMean(this.paymentSessionHref(), type);
+    this.redirect(redirection);
+  }
+
+  handleProvideBrowserData(): void {
+    this._service.provideBrowserData(this.paymentSessionHref());
+  }
+
+  async invisibleIframeCallback() {
+    const redirection = await this._service.collectTechnicalInformation(this.paymentSessionHref());
+    this.redirect(redirection);
+  }
+}
