@@ -1,194 +1,20 @@
-import { Component, computed, inject, input, output } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { TranslateDirective, TranslatePipe } from '@ngx-translate/core';
-import { catchError, firstValueFrom, of, tap } from 'rxjs';
-import { SpinnerOverlayService } from '../../../../shared/spinner-overlay';
-import { ANONYMISED_PHONE_REGEX } from '../../../../shared/utils/regexUtils';
-import { Brand } from '../../../models/brand';
-import { CardService } from '../../../services/card/card.service';
-import { CHANNEL_TYPES } from '../../domain';
-import { ClickToPayFacade } from '../../services/click-to-pay-facade.service';
-import {
-  ClickToPaySDKPortCompleteIdentityValidationError,
-  ClickToPaySDKPortInitiateIdentityValidationError,
-} from '../../services/orchestrator/adapters/errors/click-to-pay-sdk-port.error';
-import {
-  SDK_COMPLETE_IDENTITY_VALIDATION_ERROR_TYPES,
-  SDK_INITIATE_IDENTITY_VALIDATION_ERROR_TYPES,
-} from '../../services/orchestrator/adapters/errors/enums/error-type.enum';
-import { IdentificationValidationCompletionInput } from '../../services/orchestrator/adapters/types';
-import { PaymentStateStore } from '../../stores/payment-state/store';
-import { BrandLogoListComponent } from '../brand-logo-list/brand-logo-list.component';
-import { NotYouComponent } from '../not-you/not-you.component';
-import { OtpInputComponent } from '../otp-input/otp-input.component';
-import { OtpTestComponent } from '../otp-test/otp-test.component';
-import { RememberMeComponent } from '../remember-me/remember-me.component';
-import { SeparatorComponent } from '../separator/separator.component';
+private handleResendOtpError(
+  error: ClickToPaySDKPortInitiateIdentityValidationError,
+): Observable<void> {
+  const otpForm = this.otpForm.get('otp');
 
-@Component({
-  selector: 'pc-ctp-otp-check',
-  imports: [
-    BrandLogoListComponent,
-    ReactiveFormsModule,
-    OtpInputComponent,
-    SeparatorComponent,
-    TranslateDirective,
-    NotYouComponent,
-    RememberMeComponent,
-    OtpTestComponent,
-    TranslatePipe,
-  ],
-  templateUrl: './ctp-otp-check.component.html',
-  styleUrl: './ctp-otp-check.component.scss',
-})
-export class CtpOtpCheckComponent {
-  public readonly brands = input.required<Array<Brand>>();
-  public readonly validationChannel = input.required<string>();
-  public readonly usedBrand = input.required<string>();
-  public readonly spinnerTarget = input.required<HTMLElement>();
-  public readonly changeProfile = output<void>();
-  public readonly manual = output<void>();
+  if (!otpForm) {
+    return of(void 0);
+  }
 
-  private readonly _formBuilder = inject(FormBuilder);
-  private readonly _facade = inject(ClickToPayFacade);
-  private readonly _spinnerService = inject(SpinnerOverlayService);
-  protected readonly paymentStateStore = inject(PaymentStateStore);
-  protected readonly cardService = inject(CardService);
-
-  public otpForm: FormGroup;
-
-  public readonly isPhoneTarget = computed<boolean>(
-    () => !!this.validationChannel().match(ANONYMISED_PHONE_REGEX),
-  );
-
-  protected readonly isEmailSupported = computed(
-    () =>
-      !!this.paymentStateStore
-        .otpValidation()
-        ?.supportedValidationChannels.some(
-          (channel) => channel.type === CHANNEL_TYPES.EMAIL_ADDRESS,
-        ),
-  );
-
-  protected readonly isMobilePhoneSupported = computed(
-    () =>
-      !!this.paymentStateStore
-        .otpValidation()
-        ?.supportedValidationChannels.some(
-          (channel) => channel.type === CHANNEL_TYPES.MOBILE_PHONE_NUMBER,
-        ),
-  );
-
-  constructor() {
-    this.otpForm = this._formBuilder.group({
-      otp: '',
-      rememberMe: false,
+  if (
+    error.reason ===
+    SDK_INITIATE_IDENTITY_VALIDATION_ERROR_TYPES.OTP_SEND_FAILED
+  ) {
+    otpForm.setErrors({
+      retriesExceededError: 'plusieurs essaies',
     });
   }
 
-  handleScenarioSelection(newOtp: string): void {
-    this.otpForm.get('otp')?.setValue(newOtp);
-  }
-
-  get invalidatedOtp() {
-    return (
-      this.otpForm.get('otp')?.hasError('validationDataError') ||
-      this.otpForm.get('otp')?.hasError('invalidCodeError') ||
-      this.otpForm.get('otp')?.hasError('expiredCodeError')
-    );
-  }
-
-  public async resendOtpByMail(): Promise<void> {
-    await firstValueFrom(
-      this._spinnerService.runOnElement(this.spinnerTarget(), () =>
-        this._facade.restartIdentificationValidation(CHANNEL_TYPES.EMAIL_ADDRESS).pipe(
-          catchError((error: ClickToPaySDKPortInitiateIdentityValidationError) => {
-            const otpForm = this.otpForm.get('otp');
-            if (!otpForm) {
-              return of(void 0);
-            }
-            switch (error.reason) {
-              case SDK_INITIATE_IDENTITY_VALIDATION_ERROR_TYPES.OTP_SEND_FAILED:
-                otpForm.setErrors({ retriesExceededError: 'plusieurs essaies' });
-                break;
-
-              default:
-                break;
-            }
-
-            return of(void 0);
-          }),
-        ),
-      ),
-    );
-  }
-
-  public async resendOtpByPhone(): Promise<void> {
-    await firstValueFrom(
-      this._spinnerService.runOnElement(this.spinnerTarget(), () =>
-        this._facade.restartIdentificationValidation(CHANNEL_TYPES.MOBILE_PHONE_NUMBER).pipe(
-          catchError((error: ClickToPaySDKPortInitiateIdentityValidationError) => {
-            const otpForm = this.otpForm.get('otp');
-            if (!otpForm) {
-              return of(void 0);
-            }
-            switch (error.reason) {
-              case SDK_INITIATE_IDENTITY_VALIDATION_ERROR_TYPES.OTP_SEND_FAILED:
-                otpForm.setErrors({ retriesExceededError: 'plusieurs essaies' });
-                break;
-
-              default:
-                break;
-            }
-
-            return of(void 0);
-          }),
-        ),
-      ),
-    );
-  }
-
-  public async checkOtp(): Promise<void> {
-    if (this.otpForm.invalid) {
-      return;
-    }
-    const rememberMe: boolean = this.otpForm.get('rememberMe')?.value;
-
-    const input: IdentificationValidationCompletionInput = {
-      value: this.otpForm.get('otp')?.value,
-    };
-
-    await firstValueFrom(
-      this._spinnerService.runOnElement(this.spinnerTarget(), () =>
-        this._facade.completeIdentificationValidation(input, rememberMe).pipe(
-          tap(() => this.otpForm.get('otp')?.setErrors(null)),
-          catchError((error: ClickToPaySDKPortCompleteIdentityValidationError) => {
-            const otpForm = this.otpForm.get('otp');
-            if (!otpForm) {
-              return of(void 0);
-            }
-
-            switch (error.reason) {
-              case SDK_COMPLETE_IDENTITY_VALIDATION_ERROR_TYPES.VALIDATION_DATA_MISSING:
-                otpForm.setErrors({ validationDataError: 'Code imcomplet ou manquant' });
-                break;
-
-              case SDK_COMPLETE_IDENTITY_VALIDATION_ERROR_TYPES.CODE_INVALID:
-                otpForm.setErrors({ invalidCodeError: 'Code invalide' });
-                break;
-
-              case SDK_COMPLETE_IDENTITY_VALIDATION_ERROR_TYPES.CODE_EXPIRED:
-                otpForm.setErrors({ expiredCodeError: 'Code expiré' });
-                break;
-
-              default:
-                break;
-            }
-
-            return of(void 0);
-          }),
-        ),
-      ),
-    );
-  }
+  return of(void 0);
 }
