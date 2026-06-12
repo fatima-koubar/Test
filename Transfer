@@ -1,1 +1,4 @@
 
+j'ai un problème avec Git, sur un repertoire A, j'ai fait par erreur le git remote set-url origin d'un autre repertoire B, comment je peux retrouner en arriere et faire ce git remote set-url origin du bon repo. 
+
+quand je fais git log --decorate, j'ai les commits de l'autre repertoire B, meme les ficheirs sont ceux de l'autre repertoire B
