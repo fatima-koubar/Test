@@ -1,4 +1,9 @@
-
-j'ai un problème avec Git, sur un repertoire A, j'ai fait par erreur le git remote set-url origin d'un autre repertoire B, comment je peux retrouner en arriere et faire ce git remote set-url origin du bon repo. 
-
-quand je fais git log --decorate, j'ai les commits de l'autre repertoire B, meme les ficheirs sont ceux de l'autre repertoire B
+6d39affb (HEAD -> RL_2026_02_09, tag: v2.6.6, origin/RL_2026_02_09) HEAD@{0}: reset: moving to HEAD
+6d39affb (HEAD -> RL_2026_02_09, tag: v2.6.6, origin/RL_2026_02_09) HEAD@{1}: checkout: moving from main to RL_2026_02_09
+0499dfc2 (main) HEAD@{2}: checkout: moving from RL_2026_02_09 to main
+6d39affb (HEAD -> RL_2026_02_09, tag: v2.6.6, origin/RL_2026_02_09) HEAD@{3}: reset: moving to origin/RL_2026_02_09
+1f61fba0 (tag: v3.4.5) HEAD@{4}: commit: chore(Version): update dependencies
+73dc14e1 (tag: v3.4.1) HEAD@{5}: checkout: moving from composant_minimaliste to RL_2026_02_09
+abd43cf3 (composant_minimaliste) HEAD@{6}: reset: moving to HEAD
+abd43cf3 (composant_minimaliste) HEAD@{7}: checkout: moving from RL_2026_02_09 to composant_minimaliste
+73dc14e1 (tag: v3.4.1) HEAD@{8}: commit: chore(Version): update dependencies
