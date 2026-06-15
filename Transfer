@@ -1,4 +1,27 @@
-error TS2551: Property '__@ɵINPUT_SIGNAL_BRAND_WRITE_TYPE@31676' does not exist on type 'InputSignal<string>'. Did you mean '__@ɵINPUT_SIGNAL_BRAND_WRITE_TYPE@41967'?
-
-5       [paymentMeanHref]="paymentMeanHref()!"
-         ~~~~~~~~~~~~~~~
+submitPaymentMean(href: string, type: PaymentMeanType): Observable<Redirection> {
+    console.log('submit payment');
+    return defer(() => {
+      console.log('submit payment1');
+      this._logService.debug(`Soumission du moyen de paiement : ${type}`);
+      return this._paymentSessionApi.submitPaymentMean(href, type);
+    }).pipe(
+      tap(() => {
+        console.log('submit payment2');
+        this._logService.info('Le paiement a été validé.');
+      }),
+      catchError((error: Error) => {
+        console.log('submit payment3');
+        this._logService.error(
+          `Erreur lors de la récupération de la soumission de paiement. ${error.message}`,
+        );
+        const redirection = createRedirection({
+          session: Session.error({
+            id: this._paymentSessionStore.id(),
+            href,
+            theme: this._themeService.getTheme().asProps(),
+          }).asProps(),
+        });
+        return of(redirection);
+      }),
+    );
+  }
