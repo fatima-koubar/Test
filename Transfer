@@ -7,3 +7,7 @@
 
 
  Loading the image 'https://sbx.assets.mastercard.com/card-art/combined-image-asset/HIGH-MASK-3x.png' violates the following Content Security Policy directive: "default-src 'self' https://sandbox.src.mastercard.com". Note that 'img-src' was not explicitly set, so 'default-src' is used as a fallback. The action has been blocked.
+
+
+AddDefaultCharset utf-8
+Header set Content-Security-Policy "default-src 'self' https://sandbox.src.mastercard.com; frame-src 'self' applepay.cdn-apple.com; font-src 'self' https://applepay.cdn-apple.com; object-src 'none'; script-src 'self' https://applepay.cdn-apple.com; style-src 'self' 'unsafe-inline'"
