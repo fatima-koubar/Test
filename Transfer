@@ -4,3 +4,6 @@
 
 
 <div _ngcontent-ng-c3875189365="" class="card_img"><img _ngcontent-ng-c3875189365="" src="https://sbx.assets.mastercard.com/card-art/combined-image-asset/HIGH-MASK-3x.png" alt="Pictogramme de carte bancaire"></div>
+
+
+ Loading the image 'https://sbx.assets.mastercard.com/card-art/combined-image-asset/HIGH-MASK-3x.png' violates the following Content Security Policy directive: "default-src 'self' https://sandbox.src.mastercard.com". Note that 'img-src' was not explicitly set, so 'default-src' is used as a fallback. The action has been blocked.
