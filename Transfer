@@ -1,20 +1,6 @@
- async onSubmit(): Promise<void> {
-    const paymentSessionHref = this.paymentSessionHref();
+<div class="card_img">
+      <img [src]="ctpCard().artUri" [alt]="'PAYMENT_MEANS.CARD.IMAGES.CARD' | translate" />
+    </div>
 
-    if (!paymentSessionHref) {
-      this._logService.error('Identifiant de session undefined');
-      return;
-    }
 
-    const redirection = await this._paymentMeanService.submitPaymentMean(
-      paymentSessionHref,
-      PAYMENT_MEAN_TYPES.APPLEPAY,
-    );
-
-    if (!(redirection instanceof FrictionLessRedirection)) {
-      this._logService.error('Retour non prévu après la soumission de moyen de paiement apple pay');
-      return;
-    }
-
-    this._paymentSessionStore.setSession(redirection.session.asProps());
-  }
+<div _ngcontent-ng-c3875189365="" class="card_img"><img _ngcontent-ng-c3875189365="" src="https://sbx.assets.mastercard.com/card-art/combined-image-asset/HIGH-MASK-3x.png" alt="Pictogramme de carte bancaire"></div>
