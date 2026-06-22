@@ -1,3 +1,7 @@
+readonly hasFilledKycData = computed(() =>
+  Object.values(this.kycData()).some(value => value)
+);
+
 
 file ts: 
 protected _kyc$ = toObservable(this._kycStore.activeKyc);
