@@ -1,9 +1,1 @@
-this._kyc$.pipe(takeUntil(this.componentDestroy)).subscribe((kyc) => {
-      this.kycData = new Map<string, string | Date>();
-      kyc.toMap().forEach((value: string | Date | null, key: KycDataType) => {
-        const id = FieldIds.get(key);
-        if (this.kycData && id && value) {
-          this.kycData.set(id, value);
-        }
-      });
-    });
+
