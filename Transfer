@@ -1,12 +1,3 @@
-readonly hasFilledKycData = computed(() =>
-  Object.values(this.kycData()).some(value => value)
-);
-
-
-file ts: 
-protected _kyc$ = toObservable(this._kycStore.activeKyc);
- kycData?: Map<string, string | Date>;
-
 this._kyc$.pipe(takeUntil(this.componentDestroy)).subscribe((kyc) => {
       this.kycData = new Map<string, string | Date>();
       kyc.toMap().forEach((value: string | Date | null, key: KycDataType) => {
@@ -16,7 +7,3 @@ this._kyc$.pipe(takeUntil(this.componentDestroy)).subscribe((kyc) => {
         }
       });
     });
-
-
-template: 
-@if (kycData && kycData.size > 0) {...}
