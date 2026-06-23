@@ -1,55 +1,33 @@
+const OPT_SEND_FAILED_COUNTER = 5;
 
-disconnect(idToken?: string): Observable<void> {
-    return defer(() => {
-      if (!this._ports.length) {
-        return of(void 0);
+export class SandboxSDKAdapter extends ClickToPaySDKPort {
+  private counter = 0;
+
+  completeIdentityValidation(
+    input: IdentificationValidationCompletionInput,
+    rememberMe: boolean,
+  ): Observable<IdentificationValidationCompletionOutput> {
+    const value = input.value as OTPValues;
+
+    if (!Object.values(OTP_VALUES).includes(value)) {
+      this.counter++;
+      if (this.counter > OPT_SEND_FAILED_COUNTER) {
+        this.counter = 0;
+        return throwError(
+          () =>
+            new ClickToPaySDKPortCompleteIdentityValidationError(
+              SDK_COMPLETE_IDENTITY_VALIDATION_ERROR_TYPES.RETRIES_EXCEEDED,
+              this.getType(),
+            ),
+        );
       }
-
-      if (!idToken) {
-        return this._ports[0].unbindAppInstance({});
-      }
-
-      const recognitionToken = this._recognitionService.get();
-
-      const input: UnbindAppInstanceInput = {
-        idToken,
-      };
-
-      if (recognitionToken?.device_recognition) {
-        input.recognitionTokens = [recognitionToken.device_recognition];
-      }
-
-      return this._ports[0].unbindAppInstance(input);
-    }).pipe(
-      tap(() => {
-        this._federatedTokenStore.deleteIdentificationToken();
-        this._recognitionService.clear();
-        this.setSelectedPort(null);
-        this._availableCardsStore.deleteCards();
-        this._paymentStateStore.updateStep(PaymentStep.AUTH);
-      }),
-      switchMap(() => of(void 0)),
-    );
+      return throwError(
+        () =>
+          new ClickToPaySDKPortCompleteIdentityValidationError(
+            SDK_COMPLETE_IDENTITY_VALIDATION_ERROR_TYPES.CODE_INVALID,
+            this.getType(),
+          ),
+      );
+    }
   }
-
-
-
-test file: 
-
-it('should disconnect, delete identification and reset selected port', (done) => {
-    const selectedAdapter = adapters[0];
-    selectedAdapter.unbindAppInstance.and.returnValue(of(''));
-
-    const setSelectedPortSpy = spyOn(orchestrator, 'setSelectedPort');
-
-    orchestrator.disconnect().subscribe(() => {
-      expect(recognitionCookieServiceSpy.get).toHaveBeenCalled();
-      // expect(federatedTokenStore.identificationToken).toHaveBeenCalled();
-      expect(federatedTokenStore.deleteIdentificationToken).toHaveBeenCalled();
-      expect(recognitionCookieServiceSpy.clear).toHaveBeenCalled();
-      expect(setSelectedPortSpy).toHaveBeenCalledOnceWith(null);
-      expect(availableCardsStore.deleteCards).toHaveBeenCalled();
-      expect(paymentStateStore.updateStep).toHaveBeenCalledOnceWith(PaymentStep.AUTH);
-      done();
-    });
-  });
+}
