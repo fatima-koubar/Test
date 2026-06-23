@@ -1,1 +1,55 @@
 
+disconnect(idToken?: string): Observable<void> {
+    return defer(() => {
+      if (!this._ports.length) {
+        return of(void 0);
+      }
+
+      if (!idToken) {
+        return this._ports[0].unbindAppInstance({});
+      }
+
+      const recognitionToken = this._recognitionService.get();
+
+      const input: UnbindAppInstanceInput = {
+        idToken,
+      };
+
+      if (recognitionToken?.device_recognition) {
+        input.recognitionTokens = [recognitionToken.device_recognition];
+      }
+
+      return this._ports[0].unbindAppInstance(input);
+    }).pipe(
+      tap(() => {
+        this._federatedTokenStore.deleteIdentificationToken();
+        this._recognitionService.clear();
+        this.setSelectedPort(null);
+        this._availableCardsStore.deleteCards();
+        this._paymentStateStore.updateStep(PaymentStep.AUTH);
+      }),
+      switchMap(() => of(void 0)),
+    );
+  }
+
+
+
+test file: 
+
+it('should disconnect, delete identification and reset selected port', (done) => {
+    const selectedAdapter = adapters[0];
+    selectedAdapter.unbindAppInstance.and.returnValue(of(''));
+
+    const setSelectedPortSpy = spyOn(orchestrator, 'setSelectedPort');
+
+    orchestrator.disconnect().subscribe(() => {
+      expect(recognitionCookieServiceSpy.get).toHaveBeenCalled();
+      // expect(federatedTokenStore.identificationToken).toHaveBeenCalled();
+      expect(federatedTokenStore.deleteIdentificationToken).toHaveBeenCalled();
+      expect(recognitionCookieServiceSpy.clear).toHaveBeenCalled();
+      expect(setSelectedPortSpy).toHaveBeenCalledOnceWith(null);
+      expect(availableCardsStore.deleteCards).toHaveBeenCalled();
+      expect(paymentStateStore.updateStep).toHaveBeenCalledOnceWith(PaymentStep.AUTH);
+      done();
+    });
+  });
