@@ -1,93 +1,31 @@
+async onSubmit(): Promise<void> {
+  const paymentSessionHref = this.paymentSessionHref();
 
-import { Component, computed, inject, OnInit, signal, viewChild } from '@angular/core';
-import {
-  ApplePayComponent,
-  FrictionLessRedirection,
-  LogService,
-  PAYMENT_MEAN_TYPES,
-  PaymentMeanData,
-  PaymentMeanService,
-  PaymentSessionStore,
-  VIEW_TYPES,
-  APPLE_PAY_ADAPTER,
-} from '@r-emc1/payment-component';
-import { AppRedirectionComponent } from '../redirection-component/components/redirection/redirection.component';
-import { firstValueFrom } from 'rxjs';
-@Component({
-  selector: 'pcapp-apple-pay-popin',
-  standalone: true,
-  imports: [ApplePayComponent, AppRedirectionComponent],
-  templateUrl: './apple-pay-popin.component.html',
-})
-export class AppApplePayPopinComponent implements OnInit {
-  readonly VIEW_TYPES = VIEW_TYPES;
-  private readonly _paymentSessionStore = inject(PaymentSessionStore);
-  private readonly _paymentMeanService = inject(PaymentMeanService);
-  private readonly _adapter = inject(APPLE_PAY_ADAPTER);
-  private readonly _logService = inject(LogService);
-
-  readonly paymentMeanHref = signal<string | undefined>(undefined);
-  readonly paymentSessionHref = computed(() => this._paymentSessionStore.hateoasLinks().self.href);
-  readonly amount = computed(() => (this._paymentSessionStore.data() as PaymentMeanData).amount);
-
-  readonly viewType = computed(() => {
-    return this._paymentSessionStore.currentView();
-  });
-
-  readonly applePayComponent = viewChild.required<ApplePayComponent>('applePayComponent');
-
-  ngOnInit() {
-    if (this.viewType() !== VIEW_TYPES.PAYMENT_MEAN_VIEW) {
-      return;
-    }
-    const applePay = this._paymentSessionStore
-      .hateoasLinks()
-      .paymentMeans?.find((x) => x.type == PAYMENT_MEAN_TYPES.APPLEPAY);
-    if (!applePay) {
-      return;
-    }
-    const supported = this._adapter.canApplePayPayment();
-    if (!supported) {
-      return;
-    }
-    this.paymentMeanHref.set(applePay.href);
+  if (!paymentSessionHref) {
+    this._logService.error('Identifiant de session undefined');
+    return;
   }
 
-  onDataLoaded(): void {
-    this.applePayComponent().createSession();
-    const overlay = document
-      .querySelector('apple-pay-modal')
-      ?.shadowRoot?.querySelector(
-        'div.modal.modal-crossfade.modal-page-overlay.modal-open',
-      ) as HTMLElement;
-    overlay?.style.setProperty('background', 'rgb(0 0 0 / 0%)');
-  }
-
-  onClose(): void {
-    window.parent.postMessage({ action: 'close' }, '*');
-  }
-
-  async onSubmit(): Promise<void> {
-    const paymentSessionHref = this.paymentSessionHref();
-
-    if (!paymentSessionHref) {
-      this._logService.error('Identifiant de session undefined');
-      return;
-    }
-
+  try {
     const redirection = await firstValueFrom(
-      this._paymentMeanService.submitPaymentMean(paymentSessionHref, PAYMENT_MEAN_TYPES.APPLEPAY),
+      this._paymentMeanService.submitPaymentMean(
+        paymentSessionHref,
+        PAYMENT_MEAN_TYPES.APPLEPAY,
+      ),
     );
 
     if (!(redirection instanceof FrictionLessRedirection)) {
-      this._logService.error('Retour non prévu après la soumission de moyen de paiement apple pay');
+      this._logService.error(
+        'Retour non prévu après la soumission de moyen de paiement apple pay',
+      );
       return;
     }
 
     this._paymentSessionStore.setSession(redirection.session.asProps());
+  } catch (error) {
+    this._logService.error(
+      'Erreur lors de la soumission du moyen de paiement Apple Pay',
+      error,
+    );
   }
 }
-
-
-
-L'utilisation de firstValueFrom sans second argument defaultValue ou gestionnaire d'erreur peut lever une Uncaught (in promise) si l'Observable émet immédiatement une erreur ou si le composant est détruit avant la résolution. Dans un contexte de composant Angular, il est souvent plus sûr d'utiliser take(1) directement dans le pipeline ou de s'assurer que le contexte de destruction est géré pour éviter les fuites de mémoire ou les exceptions non gérées lors du cleanup.
