@@ -1,31 +1,17 @@
-async onSubmit(): Promise<void> {
-  const paymentSessionHref = this.paymentSessionHref();
+je veux optimiser ces deux bloc de codes: 
 
-  if (!paymentSessionHref) {
-    this._logService.error('Identifiant de session undefined');
-    return;
-  }
+premier: this.translations = event.data.translations as TranslationsPayload;
+            if (paymentMeanType) {
+              paymentComponent.title = this.translations['iFrameTitle'] + ' ' + paymentMeanType;
+            } else {
+              paymentComponent.title = this.translations['iFrameTitle'];
+            }
 
-  try {
-    const redirection = await firstValueFrom(
-      this._paymentMeanService.submitPaymentMean(
-        paymentSessionHref,
-        PAYMENT_MEAN_TYPES.APPLEPAY,
-      ),
-    );
 
-    if (!(redirection instanceof FrictionLessRedirection)) {
-      this._logService.error(
-        'Retour non prévu après la soumission de moyen de paiement apple pay',
-      );
-      return;
+second: if (this.translations) {
+      if (paymentMeanType) {
+        iframePopin.title = this.translations['iFramePopinTitle'] + ' ' + paymentMeanType;
+      } else {
+        iframePopin.title = this.translations['iFramePopinTitle'];
+      }
     }
-
-    this._paymentSessionStore.setSession(redirection.session.asProps());
-  } catch (error) {
-    this._logService.error(
-      'Erreur lors de la soumission du moyen de paiement Apple Pay',
-      error,
-    );
-  }
-}
