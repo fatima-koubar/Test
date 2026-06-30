@@ -1,12 +1,1 @@
-this.translations = event.data.translations as TranslationsPayload;
 
-paymentComponent.title = `${this.translations['iFrameTitle']}${
-  paymentMeanType ? ` ${paymentMeanType}` : ''
-}`;
-
-
-if (this.translations) {
-  iframePopin.title = `${this.translations['iFramePopinTitle']}${
-    paymentMeanType ? ` ${paymentMeanType}` : ''
-  }`;
-}
