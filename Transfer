@@ -1,17 +1,12 @@
-je veux optimiser ces deux bloc de codes: 
+this.translations = event.data.translations as TranslationsPayload;
 
-premier: this.translations = event.data.translations as TranslationsPayload;
-            if (paymentMeanType) {
-              paymentComponent.title = this.translations['iFrameTitle'] + ' ' + paymentMeanType;
-            } else {
-              paymentComponent.title = this.translations['iFrameTitle'];
-            }
+paymentComponent.title = `${this.translations['iFrameTitle']}${
+  paymentMeanType ? ` ${paymentMeanType}` : ''
+}`;
 
 
-second: if (this.translations) {
-      if (paymentMeanType) {
-        iframePopin.title = this.translations['iFramePopinTitle'] + ' ' + paymentMeanType;
-      } else {
-        iframePopin.title = this.translations['iFramePopinTitle'];
-      }
-    }
+if (this.translations) {
+  iframePopin.title = `${this.translations['iFramePopinTitle']}${
+    paymentMeanType ? ` ${paymentMeanType}` : ''
+  }`;
+}
