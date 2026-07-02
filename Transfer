@@ -1,1 +1,26 @@
+Explique dans le mail que je travaille sur l'accesibilité de la nouvelle page de paiement et en testant avec ergoqual, je vois une erreur lié à l'ajout d'un liem qui pointe directement vers le contenu principal. Or l'ajout de ce lien entraine un changement de l'url de la page, ce qu'on ne doit pas faire. Je voudrais savoir si c'est vraiment necessaire d'ajouter ce lien ou on peut laisser tomber. 
+Voici une version courte intégrant tout ce contexte :
 
+---
+
+**Objet : Lien d’évitement – erreur détectée sur la page de paiement**
+
+Bonjour,
+
+Je travaille sur l’accessibilité de la nouvelle page de paiement.
+
+En testant avec ErgoQual, une erreur est remontée concernant l’ajout d’un lien permettant d’accéder directement au contenu principal (“Aller au contenu”).
+
+Le problème est que l’implémentation standard de ce lien (ancre vers `#main`) entraîne un changement de l’URL de la page, ce qui n’est pas souhaité dans notre cas (comportement attendu : ne pas modifier l’URL sur cette page).
+
+Une alternative côté Angular permet de déplacer le focus vers le contenu principal sans changer l’URL, mais elle s’éloigne du pattern classique.
+
+Ma question est donc la suivante :
+👉 Est-ce que ce lien d’évitement est réellement obligatoire dans notre contexte d’accessibilité, ou peut-on ne pas l’implémenter sur cette page si cela pose des problèmes techniques ?
+
+Merci pour votre retour.
+
+Cordialement,
+[Ton prénom]
+
+---
