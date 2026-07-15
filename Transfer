@@ -1,8 +1,12 @@
-export class AppErrorComponent implements OnInit {
-  data = input.required<ErrorData>();
-  readonly returnLink = computed(() => this.data().return_link);
-}
+export class AppPaymentMeanComponent {
+data = input.required<PaymentMeanData>();
+readonly summaryFields = computed(() => {
+    const { return_link, ...fields } = this.data();
+ return fields;
+  });
 
-avec code typescript angular, j'ai ce retour de retour, est-ce vrai ou pas? si oui , c'est quoi la solution ? 
+j'ai aussi ce commentaire pour le code ci-dessus: 
 
-L'appel à this.data() dans computed() peut lever une TypeError si this.data() retourne undefined ou null. Le signal data est required, donc il devrait être défini, mais si l'état initial est mal géré ou si l'accès asynchrone n'est pas synchronisé, l'évaluation du computed échouera sans traitement d'erreur, provoquant un crash de la vue.
+La suppression de la gestion explicite des erreurs dans la construction de summaryFields laisse le composant vulnérable à undefined si this.data() n'est pas encore défini. Contrairement à l'ancienne implémentation qui utilisait Object.entries(this.data()) dans ngOnInit, le computed s'exécute potentiellement avant que le signal data ne soit pleinement résolu, causant un échec de la réactivité du composant.
+
+est-ce c'est pareil que le commentaire precedent ? 
