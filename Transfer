@@ -1,1 +1,12 @@
+startIdentityValidation(
+    channelType: ChannelType,
+  ): Observable<IdentificationValidationStartOutput> {
+    return defer(
+      async () =>
+        await this.sdk().initiateIdentityValidation({ requestedValidationChannelId: channelType }),
+    ).pipe(...)}
 
+
+initiateIdentityValidation(
+        input: CbInitiateIdentityValidationInput,
+      ): Promise<CbInitiateIdentityValidationOutput>;
