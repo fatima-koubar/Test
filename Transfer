@@ -1,1 +1,14 @@
 
+lastUsedCardTimestamp: identificationLookupOutput.consumerPresent
+          ? Math.floor(
+              (identificationLookupOutput.lastUsedCardTimestamp
+                ? Number(identificationLookupOutput.lastUsedCardTimestamp)
+                : Date.now()) / 1000,
+            )
+          : undefined,
+
+
+
+lastUsedCardTimestamp: responseOutput.lastUsedCardTimestamp
+              ? Number(responseOutput.lastUsedCardTimestamp) * 1000
+              : Date.now(),
