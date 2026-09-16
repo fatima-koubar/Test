@@ -1,19 +1,1 @@
-if (responseOutput.dcfActionCode === 'COMPLETE') {
-          const decodedCheckoutResponse = this._jwtService.decode<CheckoutResponsePayload>(
-            responseOutput.checkoutResponse!,
-          );
 
-          const srcDigitalCardId = decodedCheckoutResponse.payload.maskedCard.srcDigitalCardId;
-          const srcCorrelationId = decodedCheckoutResponse.payload.srcCorrelationId;
-        } else {
-          const srcDigitalCardId = '';
-          const srcCorrelationId = '';
-        }
-
-        return {
-          srcDigitalCardId: srcDigitalCardId,
-          srcCorrelationId: srcCorrelationId,
-          idToken: responseOutput.idToken,
-          scheme: this.getType(),
-          isDefaultScheme: true,
-        };
