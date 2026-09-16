@@ -1,18 +1,19 @@
+if (responseOutput.dcfActionCode === 'COMPLETE') {
+          const decodedCheckoutResponse = this._jwtService.decode<CheckoutResponsePayload>(
+            responseOutput.checkoutResponse!,
+          );
 
-j'ai une classe abstract ClickToPaySDKPort qui contient une fonction abstract abstract recognize(input: RecognitionInput): Observable<RecognitionOutput>;
+          const srcDigitalCardId = decodedCheckoutResponse.payload.maskedCard.srcDigitalCardId;
+          const srcCorrelationId = decodedCheckoutResponse.payload.srcCorrelationId;
+        } else {
+          const srcDigitalCardId = '';
+          const srcCorrelationId = '';
+        }
 
-pour visa et mastercard j'ai cette fonction dans le service qui extends ClickToPaySDKPort:  recognize(input: RecognitionInput): Observable<RecognitionOutput> { ... }
-
-je veux integrer CB dans le projet angular, mais je n'ai pas d'input pour la fonction recognize. 
-
-
-la fonction est appelée dans une fonction dans un service orchestrator de cette façon (c'est une partie de la fonction): 
-const recognitionResult = await firstValueFrom(
-                	const recognitionResult = await firstValueFrom(
-                port.recognize({ recognitionToken: recognitionCookie.device_recognition }),
-              );
-              if (!recognitionResult.recognized) {
-                throw new Error('Token not recognized');
-              }
-
-est-ce que ça pose problème si je mets pour CB :  recognize(): Observable<RecognitionOutput> {...} ?? si oui, comment fixer le problème ?
+        return {
+          srcDigitalCardId: srcDigitalCardId,
+          srcCorrelationId: srcCorrelationId,
+          idToken: responseOutput.idToken,
+          scheme: this.getType(),
+          isDefaultScheme: true,
+        };
