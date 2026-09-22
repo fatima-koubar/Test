@@ -1,1 +1,16 @@
 
+submitPaymentMean(href: string, type: PaymentMeanType): Observable<Redirection> | never {
+    console.log('submitPaymentMean');
+    const data = {
+      type: type,
+    };
+    return this._apiCallerService
+      .post(`${this._apiUrlService.apiUrl()}${href}/submited-payment-means`, data)
+      .pipe(
+        tap(() => console.log('okkkk')),
+        map((raw) => {
+          validatePaymentSessionRedirectionDTO(raw);
+          return createRedirection(raw);
+        }),
+      );
+  }
