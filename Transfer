@@ -1,16 +1,12 @@
-
-submitPaymentMean(href: string, type: PaymentMeanType): Observable<Redirection> | never {
-    console.log('submitPaymentMean');
-    const data = {
-      type: type,
-    };
-    return this._apiCallerService
-      .post(`${this._apiUrlService.apiUrl()}${href}/submited-payment-means`, data)
-      .pipe(
-        tap(() => console.log('okkkk')),
-        map((raw) => {
-          validatePaymentSessionRedirectionDTO(raw);
-          return createRedirection(raw);
-        }),
-      );
-  }
+const recurringPaymentRequest = {
+        paymentDescription: res.merchant_name,
+        regularBilling: {
+          label: this._translateService.instant('PAYMENT_MEANS.APPLE_PAY.SUBSCRIPTION'),
+          amount: formattedValue,
+          paymentTiming: res.use_case?.type,
+          recurringPaymentIntervalUnit: res.use_case?.recurrence_plan?.frequency,
+          recurringPaymentIntervalCount: res.use_case?.recurrence_plan?.interval,
+        },
+        managementURL: res.subscription_management_url,
+        tokenNotificationURL: res.token_notification_url,
+      };
