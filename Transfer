@@ -1,1 +1,24 @@
+export type IdentificationOutput =
+  | {
+      consumerIsPresent: false;
+    }
+  | {
+      consumerIsPresent: true;
+      lastUsedCardTimestamp?: number;
+    };
 
+const outputsWithPortPresent: {
+    port: ClickToPaySDKPort;
+    identificationOutput: Extract<IdentificationOutput, {
+        consumerIsPresent: true;
+    }>;
+}[]
+
+const mostRecentUsedPort = outputsWithPortPresent.reduce(
+          (closest, outputWithPort) =>
+            (outputWithPort.identificationOutput.lastUsedCardTimestamp ?? 0) <
+            (closest.identificationOutput.lastUsedCardTimestamp ?? 0)
+              ? outputWithPort
+              : closest,
+          outputsWithPortPresent[0],
+        ).port;
