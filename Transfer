@@ -1,1 +1,33 @@
 
+const inputSDK: CbCheckoutInput =
+        'srcDigitalCardId' in input
+          ? {
+              ...input,
+              idToken: '',
+              assuranceData: {
+                verificationData: [],
+              },
+              complianceSettings: {
+                complianceResources: [],
+              },
+            }
+          : {
+              ...input,
+              srcDigitalCardId: '',
+              idToken: '',
+              assuranceData: {
+                verificationData: [],
+              },
+              complianceSettings: {
+                complianceResources: [],
+              },
+            };
+
+      if (rememberMe || this._rememberMeOnOTP()) {
+        inputSDK.complianceSettings?.complianceResources.push({
+          complianceType: COMPLIANCE_RESOURCE_TYPES.REMEMBER_ME,
+          uri: this._window.location.href,
+        });
+      }
+
+      return this.sdk().checkout(inputSDK);
