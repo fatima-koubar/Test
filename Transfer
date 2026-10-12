@@ -1,8 +1,7 @@
-
-const inputSDK: CbCheckoutInput =
+ const inputSDK: CbCheckoutInput =
         'srcDigitalCardId' in input
           ? {
-              ...input,
+              srcDigitalCardId: input.srcDigitalCardId,
               idToken: '',
               assuranceData: {
                 verificationData: [],
@@ -12,7 +11,6 @@ const inputSDK: CbCheckoutInput =
               },
             }
           : {
-              ...input,
               srcDigitalCardId: '',
               idToken: '',
               assuranceData: {
@@ -22,12 +20,3 @@ const inputSDK: CbCheckoutInput =
                 complianceResources: [],
               },
             };
-
-      if (rememberMe || this._rememberMeOnOTP()) {
-        inputSDK.complianceSettings?.complianceResources.push({
-          complianceType: COMPLIANCE_RESOURCE_TYPES.REMEMBER_ME,
-          uri: this._window.location.href,
-        });
-      }
-
-      return this.sdk().checkout(inputSDK);
