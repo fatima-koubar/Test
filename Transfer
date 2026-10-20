@@ -1,12 +1,1 @@
-Bonjour, 
 
-Merci de votre retour.
-
-Pour le cas de la séléction du Remember Me, le unbindAppInstance fonctionne bien avec l'envoie de recognition Tokens qui sera effacé quand on change de Profil. 
-
-La question qui se pose: 
-- Que se passe t'il en cas de non sélection de Remember me ? dans ce cas, on n'a pas de recognition tokens envoyés lors du changement de profil ( que ce soit au moment de la saisi de l'OTP (processus d'identification) ou au moment de sélection de cartes.
-
-Autre Question: où peut on trouver la doc que vous mentionnez dans le mail ? (les guidelines CB)
-
-Merci d'avance 
