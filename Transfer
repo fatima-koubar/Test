@@ -1,22 +1,75 @@
- const inputSDK: CbCheckoutInput =
-        'srcDigitalCardId' in input
-          ? {
-              srcDigitalCardId: input.srcDigitalCardId,
-              idToken: '',
-              assuranceData: {
-                verificationData: [],
-              },
-              complianceSettings: {
-                complianceResources: [],
-              },
-            }
-          : {
-              srcDigitalCardId: '',
-              idToken: '',
-              assuranceData: {
-                verificationData: [],
-              },
-              complianceSettings: {
-                complianceResources: [],
-              },
+initAndRecognize(
+    ....,
+  ): Observable<void> {
+    return from(
+      Promise.allSettled(
+        ....
+      ),
+    ).pipe(
+      map((promiseSettledResults) =>
+       .....
+      ),
+      tap((ports) => {
+       .....
+      }),
+      switchMap(async () => {
+        ....
+      }),
+      switchMap(async (recognitionResult) => {
+        if (!recognitionResult) {
+          if (this._paymentStateStore.isManual() || (!customer?.mail && !customer?.phoneNumber)) {
+            this._paymentStateStore.updateStep(PaymentStep.AUTH);
+            return [];
+          }
+          if (customer?.mail) {
+            console.log('testtttt');
+            return firstValueFrom(
+              this.identifyAcrossSchemes({
+                email: customer.mail,
+              }).pipe(map(() => [])),
+            );
+          }
+          if (customer?.phoneNumber) {
+            return firstValueFrom(
+              this.identifyAcrossSchemes({
+                mobile: customer.phoneNumber,
+              }).pipe(map(() => [])),
+            );
+          }
+
+          this._paymentStateStore.updateStep(PaymentStep.AUTH);
+          return [];
+        }
+
+        this._federatedTokenStore.saveIdentificationToken(
+          recognitionResult.identificationTokens[0],
+        );
+
+        return Promise.allSettled(
+          this._ports().map(async (port) => {
+            return {
+              srcProfiles: await firstValueFrom(
+                port.getSrcProfiles(recognitionResult.identificationTokens),
+              ),
+              port,
             };
+          }),
+        );
+      }),
+      map((promiseSettledResults) =>
+        promiseSettledResults
+          .filter(
+            (
+              promiseSettledResult,
+            ): promiseSettledResult is PromiseFulfilledResult<{
+              srcProfiles: GetSrcProfilesOutput;
+              port: ClickToPaySDKPort;
+            }> => promiseSettledResult.status === 'fulfilled',
+          )
+          .map((promiseFulfilledResult) => promiseFulfilledResult.value),
+      ),
+      tap((srcProfileswithPortArray) => {
+        .....     }),
+      switchMap(() => of(void 0)),
+    );
+  }
