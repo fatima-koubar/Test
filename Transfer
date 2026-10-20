@@ -1,1 +1,21 @@
 
+Bonjour,
+
+Merci pour votre retour.
+
+Lorsque l’option « Remember Me » est sélectionnée, l’appel à "unbindAppInstances" fonctionne correctement en transmettant les "recognitionTokens". Ceux-ci sont alors supprimés lors du changement de profil.
+
+La question se pose toutefois lorsque l’utilisateur ne sélectionne pas l’option « Remember Me ». Dans ce cas, aucun "recognitionToken" n’est disponible à transmettre lors du changement de profil, que ce soit :
+
+- depuis l’écran de saisie de l’OTP, pendant le processus d’identification ;
+- depuis l’écran de sélection des cartes enregistrées.
+
+Lorsque nous appelons "unbindAppInstances" sans "recognitionToken", en transmettant les "idTokens" récupérés à partir du payload de "getSrcProfiles", l’API renvoie une erreur HTTP 400 avec le message suivant : "required cookie srcappinstanceid is not present".
+
+Pourriez-vous nous préciser quel est le comportement attendu dans ce scénario et comment le changement de profil doit être géré lorsque l’option « Remember Me » n’est pas sélectionnée ?
+
+Par ailleurs, pourriez-vous nous indiquer où nous pouvons consulter la documentation que vous mentionnez dans votre précédent e-mail, notamment les guidelines CB ?
+
+Merci d’avance pour votre aide.
+
+Cordialement,
