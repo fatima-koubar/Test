@@ -1,18 +1,1 @@
 
-Bonjour,
-
-Nous souhaitons vous faire part d’un problème rencontré avec la méthode "unbindAppInstances" dans le cadre de notre implémentation commune aux trois schemes : CB, Mastercard et Visa.
-
-Dans l’intégration CB, le paramètre "recognitionTokens" est obligatoire, alors qu’il est optionnel pour Mastercard et Visa. Ainsi, lorsque l’utilisateur ne coche pas l’option « Remember Me », aucun "recognitionToken" n’est disponible pour être transmis lors de l’appel à "unbindAppInstances" pour CB.
-
-Dans ce cas, l’API renvoie une erreur « INVALID PARAMETER ». Par conséquent, nous ne pouvons pas rediriger l’utilisateur vers l’écran de saisie de son adresse e-mail ou de son numéro de téléphone après le clic sur le lien « Changer de profil ». Nous sommes alors contraints d’afficher un écran d’erreur.
-
-Avec Mastercard, par exemple, la méthode renvoie systématiquement une réponse, que le paramètre soit renseigné ou non. Ainsi, lorsque l’utilisateur clique sur le lien « Changer de profil », il est bien redirigé vers l’écran de saisie de son adresse e-mail ou de son numéro de téléphone.
-
-Cette différence de comportement entre CB et les autres schemes est à l’origine de notre difficulté avec l’implémentation commune actuelle.
-
-Pourriez-vous nous indiquer si une évolution de votre côté est prévue afin d’améliorer le fonctionnement de cette méthode dans ce scénario ? À défaut, devons-nous adapter spécifiquement notre implémentation pour CB, tout en garantissant que le fonctionnement existant pour Mastercard et Visa ne soit pas impacté ?
-
-Merci d’avance pour votre retour.
-
-Cordialement,
