@@ -1,1 +1,212 @@
 
+Getting started with writing end-to-end tests with Playwright:
+Initializing project in '.'
+✔ Where to put your end-to-end tests? · e2e
+✔ Add a GitHub Actions workflow? (Y/n) · false
+✔ Install Playwright browsers (can be done manually via 'npx playwright install')? (Y/n) · true
+✔ Install Playwright operating system dependencies (requires sudo / root - can be done manually via 'sudo npx playwright install-deps')? (y/N) · false
+
+Installing Playwright Test (npm install --save-dev @playwright/test)…
+
+added 3 packages in 1s
+
+183 packages are looking for funding
+  run `npm fund` for details
+Writing playwright.config.ts.
+Writing e2e/example.spec.ts.
+Writing package.json.
+Downloading browsers (npx playwright install)…
+BEWARE: your OS is not officially supported by Playwright; downloading fallback build for ubuntu20.04-x64.
+Downloading Chromium 141.0.7390.37 (playwright build v1194) from https://cdn.playwright.dev/dbazure/download/playwright/builds/chromium/1194/chromium-linux.zip
+Error: Download failed: server returned code 403 body '<html>
+<head>
+<title>Access Denied - Business Proxy PROD </title>
+<meta name="author" content="EIP 3S10">
+<meta name="description" content="Default exception - Business Proxy PROD">
+</head>
+<body>
+<center>
+<font face="Arial, Helvetica, sans-serif" size="2" color="black">
+<p>
+<p><big><b>Access Denied (policy_denied)</b></big>
+<p>Your system policy has denied access to the requested URL.
+<p>If you have any questions, please raise a SARA to PTEC3S10 and provide information of section "Support information".
+<br/>
+<HR>
+<p>
+<TABLE border=0 cellPadding=1 style="font-family:Verdana; font-size:11px;">
+<CAPTION><big><b>Support information</b></big></CAPTION>
+<TR><TD>Action:</TD><TD>Default exception (policy_denied) - Business Proxy</TD></TR>
+<TR><TD>Proxy:</TD><TD>SXB9-NETpxGTW-A1-bpx</TD></TR>
+<TR><TD>Client IP Address:</TD><TD>10.199.4.142</TD></TR>
+<TR><TD>User-ID (realm):</TD><TD> (-)</TD></TR>
+<TR><TD>User LDAP groups:</TD><TD></TD></TR>
+<TR><TD>Full URL:</TD><TD>tcp:&#x2F;&#x2F;cdn.playwright.dev:443&#x2F;</TD></TR>
+<TR><TD>Method:</TD><TD>CONNECT</TD></TR>
+<TR><TD>Date:</TD><TD>2026-11-03 14:01:15</TD></TR>
+<TR><TD>User agent:</TD><TD><'. URL: https://cdn.playwright.dev/dbazure/download/playwright/builds/chromium/1194/chromium-linux.zip
+    at IncomingMessage.handleError (/home/ldap/koubarfa/sources/angular/payment-component-lib/node_modules/playwright-core/lib/server/registry/oopDownloadBrowserMain.js:56:23)
+    at IncomingMessage.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+Downloading Chromium 141.0.7390.37 (playwright build v1194) from https://playwright.download.prss.microsoft.com/dbazure/download/playwright/builds/chromium/1194/chromium-linux.zip
+Error: Download failed: server returned code 403 body '<html>
+<head>
+<title>Access Denied - Business Proxy PROD </title>
+<meta name="author" content="EIP 3S10">
+<meta name="description" content="Default exception - Business Proxy PROD">
+</head>
+<body>
+<center>
+<font face="Arial, Helvetica, sans-serif" size="2" color="black">
+<p>
+<p><big><b>Access Denied (policy_denied)</b></big>
+<p>Your system policy has denied access to the requested URL.
+<p>If you have any questions, please raise a SARA to PTEC3S10 and provide information of section "Support information".
+<br/>
+<HR>
+<p>
+<TABLE border=0 cellPadding=1 style="font-family:Verdana; font-size:11px;">
+<CAPTION><big><b>Support information</b></big></CAPTION>
+<TR><TD>Action:</TD><TD>Default exception (policy_denied) - Business Proxy</TD></TR>
+<TR><TD>Proxy:</TD><TD>SXB9-NETpxGTW-A1-bpx</TD></TR>
+<TR><TD>Client IP Address:</TD><TD>10.199.4.142</TD></TR>
+<TR><TD>User-ID (realm):</TD><TD> (-)</TD></TR>
+<TR><TD>User LDAP groups:</TD><TD></TD></TR>
+<TR><TD>Full URL:</TD><TD>tcp:&#x2F;&#x2F;playwright.download.prss.microsoft.com:443&#x2F;</TD></TR>
+<TR><TD>Method:</TD><TD>CONNECT</TD></TR>
+<TR><TD>Date:</TD><TD>2026-11-03 14:01:15</TD></TR>
+<TR><TD>U'. URL: https://playwright.download.prss.microsoft.com/dbazure/download/playwright/builds/chromium/1194/chromium-linux.zip
+    at IncomingMessage.handleError (/home/ldap/koubarfa/sources/angular/payment-component-lib/node_modules/playwright-core/lib/server/registry/oopDownloadBrowserMain.js:56:23)
+    at IncomingMessage.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+Downloading Chromium 141.0.7390.37 (playwright build v1194) from https://cdn.playwright.dev/builds/chromium/1194/chromium-linux.zip
+Error: Download failed: server returned code 403 body '<html>
+<head>
+<title>Access Denied - Business Proxy PROD </title>
+<meta name="author" content="EIP 3S10">
+<meta name="description" content="Default exception - Business Proxy PROD">
+</head>
+<body>
+<center>
+<font face="Arial, Helvetica, sans-serif" size="2" color="black">
+<p>
+<p><big><b>Access Denied (policy_denied)</b></big>
+<p>Your system policy has denied access to the requested URL.
+<p>If you have any questions, please raise a SARA to PTEC3S10 and provide information of section "Support information".
+<br/>
+<HR>
+<p>
+<TABLE border=0 cellPadding=1 style="font-family:Verdana; font-size:11px;">
+<CAPTION><big><b>Support information</b></big></CAPTION>
+<TR><TD>Action:</TD><TD>Default exception (policy_denied) - Business Proxy</TD></TR>
+<TR><TD>Proxy:</TD><TD>SXB9-NETpxGTW-A1-bpx</TD></TR>
+<TR><TD>Client IP Address:</TD><TD>10.199.4.142</TD></TR>
+<TR><TD>User-ID (realm):</TD><TD> (-)</TD></TR>
+<TR><TD>User LDAP groups:</TD><TD></TD></TR>
+<TR><TD>Full URL:</TD><TD>tcp:&#x2F;&#x2F;cdn.playwright.dev:443&#x2F;</TD></TR>
+<TR><TD>Method:</TD><TD>CONNECT</TD></TR>
+<TR><TD>Date:</TD><TD>2026-11-03 14:01:15</TD></TR>
+<TR><TD>User agent:</TD><TD><'. URL: https://cdn.playwright.dev/builds/chromium/1194/chromium-linux.zip
+    at IncomingMessage.handleError (/home/ldap/koubarfa/sources/angular/payment-component-lib/node_modules/playwright-core/lib/server/registry/oopDownloadBrowserMain.js:56:23)
+    at IncomingMessage.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+Downloading Chromium 141.0.7390.37 (playwright build v1194) from https://cdn.playwright.dev/dbazure/download/playwright/builds/chromium/1194/chromium-linux.zip
+Error: Download failed: server returned code 403 body '<html>
+<head>
+<title>Access Denied - Business Proxy PROD </title>
+<meta name="author" content="EIP 3S10">
+<meta name="description" content="Default exception - Business Proxy PROD">
+</head>
+<body>
+<center>
+<font face="Arial, Helvetica, sans-serif" size="2" color="black">
+<p>
+<p><big><b>Access Denied (policy_denied)</b></big>
+<p>Your system policy has denied access to the requested URL.
+<p>If you have any questions, please raise a SARA to PTEC3S10 and provide information of section "Support information".
+<br/>
+<HR>
+<p>
+<TABLE border=0 cellPadding=1 style="font-family:Verdana; font-size:11px;">
+<CAPTION><big><b>Support information</b></big></CAPTION>
+<TR><TD>Action:</TD><TD>Default exception (policy_denied) - Business Proxy</TD></TR>
+<TR><TD>Proxy:</TD><TD>SXB9-NETpxGTW-A1-bpx</TD></TR>
+<TR><TD>Client IP Address:</TD><TD>10.199.4.142</TD></TR>
+<TR><TD>User-ID (realm):</TD><TD> (-)</TD></TR>
+<TR><TD>User LDAP groups:</TD><TD></TD></TR>
+<TR><TD>Full URL:</TD><TD>tcp:&#x2F;&#x2F;cdn.playwright.dev:443&#x2F;</TD></TR>
+<TR><TD>Method:</TD><TD>CONNECT</TD></TR>
+<TR><TD>Date:</TD><TD>2026-11-03 14:01:15</TD></TR>
+<TR><TD>User agent:</TD><TD><'. URL: https://cdn.playwright.dev/dbazure/download/playwright/builds/chromium/1194/chromium-linux.zip
+    at IncomingMessage.handleError (/home/ldap/koubarfa/sources/angular/payment-component-lib/node_modules/playwright-core/lib/server/registry/oopDownloadBrowserMain.js:56:23)
+    at IncomingMessage.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+Downloading Chromium 141.0.7390.37 (playwright build v1194) from https://playwright.download.prss.microsoft.com/dbazure/download/playwright/builds/chromium/1194/chromium-linux.zip
+Error: Download failed: server returned code 403 body '<html>
+<head>
+<title>Access Denied - Business Proxy PROD </title>
+<meta name="author" content="EIP 3S10">
+<meta name="description" content="Default exception - Business Proxy PROD">
+</head>
+<body>
+<center>
+<font face="Arial, Helvetica, sans-serif" size="2" color="black">
+<p>
+<p><big><b>Access Denied (policy_denied)</b></big>
+<p>Your system policy has denied access to the requested URL.
+<p>If you have any questions, please raise a SARA to PTEC3S10 and provide information of section "Support information".
+<br/>
+<HR>
+<p>
+<TABLE border=0 cellPadding=1 style="font-family:Verdana; font-size:11px;">
+<CAPTION><big><b>Support information</b></big></CAPTION>
+<TR><TD>Action:</TD><TD>Default exception (policy_denied) - Business Proxy</TD></TR>
+<TR><TD>Proxy:</TD><TD>SXB9-NETpxGTW-A1-bpx</TD></TR>
+<TR><TD>Client IP Address:</TD><TD>10.199.4.142</TD></TR>
+<TR><TD>User-ID (realm):</TD><TD> (-)</TD></TR>
+<TR><TD>User LDAP groups:</TD><TD></TD></TR>
+<TR><TD>Full URL:</TD><TD>tcp:&#x2F;&#x2F;playwright.download.prss.microsoft.com:443&#x2F;</TD></TR>
+<TR><TD>Method:</TD><TD>CONNECT</TD></TR>
+<TR><TD>Date:</TD><TD>2026-11-03 14:01:15</TD></TR>
+<TR><TD>U'. URL: https://playwright.download.prss.microsoft.com/dbazure/download/playwright/builds/chromium/1194/chromium-linux.zip
+    at IncomingMessage.handleError (/home/ldap/koubarfa/sources/angular/payment-component-lib/node_modules/playwright-core/lib/server/registry/oopDownloadBrowserMain.js:56:23)
+    at IncomingMessage.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+Failed to install browsers
+Error: Failed to download Chromium 141.0.7390.37 (playwright build v1194), caused by
+Error: Download failure, code=1
+    at ChildProcess.<anonymous> (/home/ldap/koubarfa/sources/angular/payment-component-lib/node_modules/playwright-core/lib/server/registry/browserFetcher.js:94:32)
+    at ChildProcess.emit (node:events:524:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+Error: Command failed: npx playwright install
+    at genericNodeError (node:internal/errors:984:15)
+    at wrappedFn (node:internal/errors:538:14)
+    at checkExecSyncError (node:child_process:891:11)
+    at execSync (node:child_process:963:15)
+    at executeCommands (/home/ldap/koubarfa/.npm/_npx/d352e76cc6b4974c/node_modules/create-playwright/lib/index.js:8272:39)
+    at Generator.run (/home/ldap/koubarfa/.npm/_npx/d352e76cc6b4974c/node_modules/create-playwright/lib/index.js:8356:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async _Command.<anonymous> (/home/ldap/koubarfa/.npm/_npx/d352e76cc6b4974c/node_modules/create-playwright/lib/index.js:8661:3)
+    at async _Command.parseAsync (/home/ldap/koubarfa/.npm/_npx/d352e76cc6b4974c/node_modules/create-playwright/lib/index.js:2148:9) {
+  status: 1,
+  signal: null,
+  output: [ null, null, null ],
+  pid: 2427751,
+  stdout: null,
+  stderr: null
+}
+npm error code 1
+npm error path /home/ldap/koubarfa/sources/angular/payment-component-lib
+npm error command failed
+npm error command sh -c create-playwright
+npm error A complete log of this run can be found in: /home/ldap/koubarfa/.npm/_logs/2026-11-03T14_00_57_397Z-debug-0.log
