@@ -1,20 +1,28 @@
-
-183 packages are looking for funding
-  run `npm fund` for details
-Writing playwright.config.ts.
-Writing e2e/example.spec.ts.
-Writing package.json.
-Downloading browsers (npx playwright install)…
-BEWARE: your OS is not officially supported by Playwright; downloading fallback build for ubuntu20.04-x64.
-Downloading Chromium 141.0.7390.37 (playwright build v1194) from https://cdn.playwright.dev/dbazure/download/playwright/builds/chromium/1194/chromium-linux.zip
-Error: connect EAFNOSUPPORT 2603:1061:14:136::1:443 - Local (undefined:undefined)
-    at internalConnect (node:net:1098:16)
-    at defaultTriggerAsyncIdScope (node:internal/async_hooks:464:18)
-    at node:net:1328:9
-    at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
-  errno: -97,
-  code: 'EAFNOSUPPORT',
-  syscall: 'connect',
-  address: '2603:1061:14:136::1',
-  port: 443
-}
+(method) ClickToPayOrchestrator.checkout(params: (({
+ payloadTypeIndicatorCheckout: "SUMMARY";
+ windowRef?: Window | undefined;
+} & {
+ srcDigitalCardId: string;
+}) | ({
+ payloadTypeIndicatorCheckout: "SUMMARY";
+ windowRef?: Window | undefined;
+} & {
+ encryptedCard: string;
+} & {
+ idToken: string;
+}) | ({
+ payloadTypeIndicatorCheckout: "SUMMARY";
+ windowRef?: Window | undefined;
+} & {
+ encryptedCard: string;
+} & {
+ consumer: {
+ emailAddress: string;
+ mobileNumber: {
+ countryCode: string;
+ phoneNumber: number;
+ };
+ };
+})) & {
+ portType: PortType;
+}, rememberMe?: boolean): Observable<CardValidationDataDTO>
