@@ -1,1 +1,18 @@
-[ { "code": "3xcb", "icon": "picto/logo_cofidis_3xcb.svg", "label": "PAYMENT_MEANS.COFIDIS.PRODUCTS.LABELS.3XCB" }, { "code": "4xcb", "icon": "picto/logo_cofidis_4xcb.svg", "label": "PAYMENT_MEANS.COFIDIS.PRODUCTS.LABELS.4XCB" }, { "code": "loan", "icon": "picto/logo_cofidis_loan.svg", "label": "PAYMENT_MEANS.COFIDIS.PRODUCTS.LABELS.LOAN" }, { "code": "paylater", "icon": "picto/logo_cofidis_paylater.svg", "label": "PAYMENT_MEANS.COFIDIS.PRODUCTS.LABELS.PAYLATER" }, { "code": "5_10_12xcb", "icon": "picto/logo_cofidis_5_10_12xcb.svg", "label": "PAYMENT_MEANS.COFIDIS.PRODUCTS.LABELS.5_10_12XCB" } ]
+if (this.isCofidisProduct(this.generatedPaymentMean())) {
+        if (this.generatedPaymentMean() === COFIDIS_PRODUCTS.THREE_XCB) {
+          this.cofidisGeneratedPaymentMean = COFIDIS_PRODUCTS.THREE_XCB;
+        }
+        if (this.generatedPaymentMean() === COFIDIS_PRODUCTS.FOUR_XCB) {
+          this.cofidisGeneratedPaymentMean = COFIDIS_PRODUCTS.FOUR_XCB;
+        }
+        if (this.generatedPaymentMean() === COFIDIS_PRODUCTS.PAYLATER) {
+          this.cofidisGeneratedPaymentMean = COFIDIS_PRODUCTS.PAYLATER;
+        }
+        if (this.generatedPaymentMean() === COFIDIS_PRODUCTS.LOAN) {
+          this.cofidisGeneratedPaymentMean = COFIDIS_PRODUCTS.LOAN;
+        }
+        if (this.generatedPaymentMean() === COFIDIS_PRODUCTS.FIVE_TEN_TWELVE_XCB) {
+          this.cofidisGeneratedPaymentMean = COFIDIS_PRODUCTS.FIVE_TEN_TWELVE_XCB;
+        }
+        this._paymentSessionStore.saveCofidisProductComponentMono(this.cofidisGeneratedPaymentMean);
+      }
