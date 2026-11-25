@@ -1,18 +1,9 @@
-if (this.isCofidisProduct(this.generatedPaymentMean())) {
-        if (this.generatedPaymentMean() === COFIDIS_PRODUCTS.THREE_XCB) {
-          this.cofidisGeneratedPaymentMean = COFIDIS_PRODUCTS.THREE_XCB;
-        }
-        if (this.generatedPaymentMean() === COFIDIS_PRODUCTS.FOUR_XCB) {
-          this.cofidisGeneratedPaymentMean = COFIDIS_PRODUCTS.FOUR_XCB;
-        }
-        if (this.generatedPaymentMean() === COFIDIS_PRODUCTS.PAYLATER) {
-          this.cofidisGeneratedPaymentMean = COFIDIS_PRODUCTS.PAYLATER;
-        }
-        if (this.generatedPaymentMean() === COFIDIS_PRODUCTS.LOAN) {
-          this.cofidisGeneratedPaymentMean = COFIDIS_PRODUCTS.LOAN;
-        }
-        if (this.generatedPaymentMean() === COFIDIS_PRODUCTS.FIVE_TEN_TWELVE_XCB) {
-          this.cofidisGeneratedPaymentMean = COFIDIS_PRODUCTS.FIVE_TEN_TWELVE_XCB;
-        }
-        this._paymentSessionStore.saveCofidisProductComponentMono(this.cofidisGeneratedPaymentMean);
-      }
+Hello, 
+
+Thank you for the precisions you gave us about cards statuses in the checkout. 
+We will change our implementation according to this explanation. 
+
+In our current implementation we filter the cards having the statuses ACTIVE and EXPIRED, because other schemes like Mastercard return the status Expired instead of Active for expired cards. 
+Do you have any future plan to add the status Expired in the getSrcProfile() response ? 
+
+Regards, 
